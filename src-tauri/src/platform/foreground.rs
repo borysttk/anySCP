@@ -15,7 +15,7 @@
 
 #[cfg(target_os = "android")]
 mod imp {
-    use jni::objects::{JObject, JValue};
+    use jni::objects::{JClass, JObject, JValue};
     use jni::JavaVM;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -63,8 +63,8 @@ mod imp {
                     let j_title = env.new_string(title)?;
                     let j_text = env.new_string(text)?;
                     env.call_static_method(
-                        &class,
-                        method,
+                    JClass::from(class),
+                    method,
                         "(Landroid/content/Context;Ljava/lang/String;Ljava/lang/String;)V",
                         &[
                             JValue::Object(&activity),
@@ -75,8 +75,8 @@ mod imp {
                 }
                 None => {
                     env.call_static_method(
-                        &class,
-                        method,
+                    JClass::from(class),
+                    method,
                         "(Landroid/content/Context;)V",
                         &[JValue::Object(&activity)],
                     )?;

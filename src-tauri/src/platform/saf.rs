@@ -50,7 +50,7 @@ mod imp {
 #[cfg(target_os = "android")]
 mod imp {
     use super::*;
-    use jni::objects::{JObject, JValue};
+    use jni::objects::{JClass, JObject, JValue};
     use std::collections::HashMap;
     use std::sync::{Mutex, OnceLock};
     use tokio::sync::oneshot;
@@ -120,7 +120,7 @@ mod imp {
                 .new_string(mime_type)
                 .map_err(|e| SafError::Bridge(format!("new_string failed: {e}")))?;
             env.call_static_method(
-                &class,
+                JClass::from(class),
                 "requestCreateDocument",
                 "(Landroid/app/Activity;Ljava/lang/String;Ljava/lang/String;)I",
                 &[
@@ -162,7 +162,7 @@ mod imp {
                 .map_err(|e| SafError::Bridge(format!("new_string failed: {e}")))?;
             let written = env
                 .call_static_method(
-                    &class,
+                    JClass::from(class),
                     "copyFileToUri",
                     "(Landroid/app/Activity;Ljava/lang/String;Ljava/lang/String;)J",
                     &[
