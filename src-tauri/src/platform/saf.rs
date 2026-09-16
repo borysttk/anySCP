@@ -94,8 +94,16 @@ mod imp {
     }
 
     /// Run `f` with a JNI env attached to the current thread and the Activity.
+    ///
+    /// The `for<'a>` bound is load-bearing. Writing the closure type as
+    /// `FnOnce(&mut JNIEnv, &JObject)` lets elision give each argument its
+    /// *own* lifetime (`&mut JNIEnv<'b>`, `&JObject<'d>`), so a callee such as
+    /// `find_app_class<'a>(&mut JNIEnv<'a>, &JObject<'a>)` — which requires the
+    /// env and the object to belong to the same local frame — cannot be called
+    /// from inside `f`. Naming one lifetime for both is also semantically
+    /// correct: the Activity reference lives in the frame `env` owns.
     fn with_activity<T>(
-        f: impl FnOnce(&mut jni::JNIEnv, &JObject) -> Result<T, SafError>,
+        f: impl for<'a> FnOnce(&mut jni::JNIEnv<'a>, &JObject<'a>) -> Result<T, SafError>,
     ) -> Result<T, SafError> {
         let ctx = ndk_context::android_context();
         let vm = unsafe { jni::JavaVM::from_raw(ctx.vm().cast()) }
