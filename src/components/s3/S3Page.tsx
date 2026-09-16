@@ -8,8 +8,10 @@ import { ContextMenu } from "../shared/ContextMenu";
 import { ConfirmDangerDialog } from "../shared/ConfirmDangerDialog";
 import type { ContextMenuItem } from "../shared/ContextMenu";
 import type { S3Session } from "../../stores/s3-store";
+import { useTranslation } from "react-i18next";
 
 export function S3Page() {
+  const { t } = useTranslation();
   const sessions = useS3Store((s) => s.sessions);
   const activeS3SessionId = useS3Store((s) => s.activeS3SessionId);
   const setActiveS3Session = useS3Store((s) => s.setActiveS3Session);
@@ -139,7 +141,7 @@ export function S3Page() {
 
           {/* Page title */}
           <div>
-            <h1 className="text-[length:var(--text-lg)] font-semibold text-text-primary">Cloud Storage</h1>
+            <h1 className="text-[length:var(--text-lg)] font-semibold text-text-primary">{t('components_s3_S3Page_cloud_storage')}</h1>
             <p className="text-[length:var(--text-xs)] text-text-muted mt-1">
               Browse and manage files in S3 buckets and S3-compatible storage services like MinIO, R2, and Wasabi
             </p>

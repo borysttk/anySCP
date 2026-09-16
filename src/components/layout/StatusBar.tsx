@@ -1,7 +1,9 @@
 import { useSessionStore } from "../../stores/session-store";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 export function StatusBar() {
+  const { t } = useTranslation();
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
   const sessions = useSessionStore((s) => s.sessions);
   const sessionCount = sessions.size;
@@ -65,7 +67,7 @@ export function StatusBar() {
           </span>
         </>
       ) : (
-        <span className="text-text-muted">No active session</span>
+        <span className="text-text-muted">{t('components_layout_StatusBar_no_active_session')}</span>
       )}
     </div>
   );

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Loader2, AlertCircle, Check, FileText } from "lucide-react";
 import { ModalShell, BTN_GHOST, BTN_PRIMARY } from "../shared/ModalShell";
 import type { SshConfigEntry, ImportResult } from "../../types";
+import { useTranslation } from "react-i18next";
 
 interface ImportSshConfigModalProps {
   onClose: () => void;
@@ -9,6 +10,7 @@ interface ImportSshConfigModalProps {
 }
 
 export function ImportSshConfigModal({ onClose, onImported }: ImportSshConfigModalProps) {
+  const { t } = useTranslation();
   const [entries, setEntries] = useState<SshConfigEntry[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [scanning, setScanning] = useState(true);
@@ -136,10 +138,10 @@ export function ImportSshConfigModal({ onClose, onImported }: ImportSshConfigMod
       busy={importing}
       footer={
         result ? (
-          <button type="button" onClick={onClose} className={BTN_PRIMARY}>Done</button>
+          <button type="button" onClick={onClose} className={BTN_PRIMARY}>{t('components_dashboard_ImportSshConfigModal_done')}</button>
         ) : (
           <>
-            <button type="button" onClick={onClose} disabled={importing} className={BTN_GHOST}>Cancel</button>
+            <button type="button" onClick={onClose} disabled={importing} className={BTN_GHOST}>{t('components_dashboard_ImportSshConfigModal_cancel')}</button>
             <button
               type="button"
               data-testid="import-ssh-config-submit"
@@ -181,7 +183,7 @@ export function ImportSshConfigModal({ onClose, onImported }: ImportSshConfigMod
           ) : scanning ? (
             <div className="flex flex-col items-center gap-4 py-12">
               <Loader2 size={26} strokeWidth={2} className="text-accent motion-safe:animate-spin" />
-              <p className="text-[length:var(--text-sm)] text-text-muted">Scanning SSH config...</p>
+              <p className="text-[length:var(--text-sm)] text-text-muted">{t('components_dashboard_ImportSshConfigModal_scanning_ssh_config')}</p>
             </div>
           ) : scanError ? (
             <div className="flex flex-col items-center gap-4 py-8">
@@ -197,7 +199,7 @@ export function ImportSshConfigModal({ onClose, onImported }: ImportSshConfigMod
           ) : entries.length === 0 ? (
             <div className="flex flex-col items-center gap-4 py-8">
               <FileText size={26} strokeWidth={1.5} className="text-text-muted/40" />
-              <p className="text-[length:var(--text-sm)] text-text-muted">No hosts found in SSH config</p>
+              <p className="text-[length:var(--text-sm)] text-text-muted">{t('components_dashboard_ImportSshConfigModal_no_hosts_found_in_ssh_config')}</p>
               <button
                 onClick={handleBrowse}
                 className="px-3 py-1.5 text-[length:var(--text-xs)] font-medium text-text-muted border border-border rounded-lg hover:text-text-primary hover:bg-bg-overlay transition-all duration-[var(--duration-fast)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -225,8 +227,8 @@ export function ImportSshConfigModal({ onClose, onImported }: ImportSshConfigMod
                 <span className="text-[length:var(--text-xs)] text-text-muted">
                   {importableCount} of {entries.filter((e) => !e.is_pattern).length} selected
                 </span>
-                <button onClick={selectAll} className="text-[length:var(--text-2xs)] text-accent hover:text-accent-hover">All</button>
-                <button onClick={selectNone} className="text-[length:var(--text-2xs)] text-accent hover:text-accent-hover">None</button>
+                <button onClick={selectAll} className="text-[length:var(--text-2xs)] text-accent hover:text-accent-hover">{t('components_dashboard_ImportSshConfigModal_all')}</button>
+                <button onClick={selectNone} className="text-[length:var(--text-2xs)] text-accent hover:text-accent-hover">{t('components_dashboard_ImportSshConfigModal_none')}</button>
               </div>
 
               {/* Host list */}

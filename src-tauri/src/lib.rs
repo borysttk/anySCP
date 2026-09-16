@@ -1,27 +1,8 @@
 mod ai;
 mod backup;
 mod db;
-/// External editor detection and launching. The desktop implementation spawns
-/// processes and probes `/Applications`, `~/.local/bin` and the Windows
-/// registry — none of which exist on Android, where apps cannot run arbitrary
-/// executables. The mobile shim keeps `EditorConfig` and `detect_editors`
-/// available so dependent command signatures still resolve.
-#[cfg(not(target_os = "android"))]
 mod editors;
-#[cfg(target_os = "android")]
-#[path = "editors/mobile.rs"]
-mod editors;
-
-/// `~/.ssh/config` import. The desktop implementation depends on
-/// `ssh2-config`, whose build script pulls in git2 → openssl-sys; Android has
-/// no user SSH config to read either.
-#[cfg(not(target_os = "android"))]
 mod import;
-#[cfg(target_os = "android")]
-#[path = "import/mobile.rs"]
-mod import;
-
-mod platform;
 mod portforward;
 mod s3;
 mod scp;
@@ -43,11 +24,7 @@ use sftp::transfer_manager::TransferManager;
 use sftp::SftpManager;
 use ssh::manager::SshManager;
 use std::sync::Arc;
-use tauri::Manager;
-// Only the desktop branch builds a window; importing these on Android would
-// trip the unused-import lint.
-#[cfg(not(target_os = "android"))]
-use tauri::{WebviewUrl, WebviewWindowBuilder};
+use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
 /// Whether this is a real release build — i.e. a packaged binary that can
 /// safely self-update via the updater plugin.
@@ -63,75 +40,23 @@ fn is_release_build() -> bool {
     !cfg!(debug_assertions)
 }
 
-/// Install the tracing subscriber for the current platform.
-///
-/// Android discards stdout/stderr from native code, so the default `fmt()`
-/// writer would silently produce nothing in `adb logcat`. Route through the
-/// logd socket instead, keeping the same env filter on both platforms.
-fn init_tracing() {
-    const FILTER: &str = "anyscp=debug,russh=info";
-
-    #[cfg(target_os = "android")]
-    {
-        use tracing_logcat::{LogcatMakeWriter, LogcatTag};
-        use tracing_subscriber::fmt::format::Format;
-
-        let Ok(writer) = LogcatMakeWriter::new(LogcatTag::Fixed("anySCP".to_owned())) else {
-            // logd is unreachable (very unusual); a logging failure must never
-            // prevent the app from starting.
-            return;
-        };
-
-        tracing_subscriber::fmt()
-            // logcat records its own timestamp and level, so omit both here to
-            // avoid duplicated columns in every line.
-            .event_format(Format::default().with_level(false).without_time())
-            .with_writer(writer)
-            .with_ansi(false)
-            .with_env_filter(FILTER)
-            .init();
-    }
-
-    #[cfg(not(target_os = "android"))]
-    tracing_subscriber::fmt().with_env_filter(FILTER).init();
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    init_tracing();
+    tracing_subscriber::fmt()
+        .with_env_filter("anyscp=debug,russh=info")
+        .init();
 
-    let builder = tauri::Builder::default()
+    tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_clipboard_manager::init());
-
-    // The updater and process plugins have no Android/iOS implementation, and
-    // Google Play forbids apps from installing their own updates. Registering
-    // them on mobile would fail at startup.
-    #[cfg(not(target_os = "android"))]
-    let builder = builder
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_process::init());
-
-    builder
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .setup(|app| {
             let app_data_dir = app
                 .path()
                 .app_data_dir()
                 .map_err(|e| format!("could not resolve app data dir: {e}"))?;
-
-            // Seed the scratch root before anything can use it. On Android
-            // `std::env::temp_dir()` resolves to /tmp, which does not exist in
-            // the app sandbox, so backup export/restore and the SFTP staging
-            // paths must go through the app cache dir instead.
-            if let Ok(cache_dir) = app.path().app_cache_dir() {
-                platform::init_cache_root(cache_dir);
-            }
-
-            // Park the app handle for the Android activity lifecycle callbacks.
-            // They arrive via JNI on the platform main thread with no route to
-            // Tauri state, so they look it up here. Harmless no-op on desktop.
-            platform::lifecycle::init(app.handle().clone());
 
             let host_db = HostDb::new(&app_data_dir)
                 .map_err(|e| format!("failed to initialise database: {e}"))?;
@@ -205,26 +130,18 @@ pub fn run() {
                 "document.documentElement.dataset.theme = {theme:?}; document.documentElement.style.setProperty('--accent-hue', '{accent_hue}');{custom_accent_script}{font_script}{mono_font_script}"
             );
 
-            // Desktop creates its own window so the theme script can be attached
-            // before first paint. On Android the webview belongs to the Activity
-            // and is created by the Tauri runtime before `setup` runs, so the
-            // same script is injected into the existing window instead.
-            #[cfg(not(target_os = "android"))]
             WebviewWindowBuilder::new(app.handle(), "main", WebviewUrl::App("index.html".into()))
-                .title("anySCP")
-                .inner_size(1200.0, 800.0)
-                .min_inner_size(800.0, 500.0)
                 .initialization_script(&theme_script)
                 .build()
                 .map_err(|e| format!("failed to create main window: {e}"))?;
 
-            // The Android webview has already navigated by this point, so an
-            // initialization script would not run until the next load. Evaluate
-            // it directly; a brief flash of the default theme is possible on the
-            // very first frame, which is addressed in the mobile UI phase.
-            #[cfg(target_os = "android")]
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.eval(&theme_script);
+            #[cfg(not(target_os = "android"))]
+            {
+                let window = WebviewWindowBuilder::new(app.handle(), "main", WebviewUrl::App("index.html".into()))
+                    .inner_size(1200.0, 800.0)
+                    .min_inner_size(800.0, 500.0)
+                    .initialization_script(&theme_script);
+                let _ = window.build();
             }
 
             app.manage(Arc::new(host_db));
@@ -282,8 +199,7 @@ pub fn run() {
             sftp::commands::sftp_copy_entries,
             // SFTP — legacy direct transfers (kept for VS Code edit workflow)
             sftp::commands::sftp_download,
-            sftp::commands::sftp_saf_begin_export,
-            sftp::commands::sftp_saf_finish_export,
+            #[cfg(not(target_os = "android"))]
             sftp::commands::sftp_drag_out,
             sftp::commands::sftp_upload,
             sftp::commands::sftp_cancel_transfer,
@@ -325,8 +241,6 @@ pub fn run() {
             // SSH
             ssh::commands::ssh_connect,
             ssh::commands::ssh_cancel_connect,
-            ssh::commands::ssh_reconnect_session,
-            ssh::commands::ssh_check_session,
             ssh::commands::ssh_split_session,
             ssh::commands::ssh_disconnect,
             ssh::commands::ssh_send_input,

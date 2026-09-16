@@ -9,6 +9,7 @@ import { useTabStore } from "../../stores/tab-store";
 import type { SavedHost, HostConfig, StoredCredential } from "../../types";
 import { HOST_COLORS } from "./HostCard";
 import { CustomSelect } from "../shared/CustomSelect";
+import { useTranslation } from "react-i18next";
 
 // ─── Field types ─────────────────────────────────────────────────────────────
 
@@ -117,6 +118,7 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function HostEditModal() {
+  const { t } = useTranslation();
   const editingHostId = useUiStore((s) => s.editingHostId);
   const setEditingHostId = useUiStore((s) => s.setEditingHostId);
 
@@ -503,7 +505,7 @@ export function HostEditModal() {
             <div className="flex flex-col gap-3.5">
 
               {/* ════════════════ CONNECTION ════════════════ */}
-              <SectionHeader>Connection</SectionHeader>
+              <SectionHeader>{t('components_dashboard_HostEditModal_connection')}</SectionHeader>
 
               {/* Label */}
               <div>
@@ -748,7 +750,7 @@ export function HostEditModal() {
               )}
 
               {/* ════════════════ TUNNEL ════════════════ */}
-              <SectionHeader>Tunnel</SectionHeader>
+              <SectionHeader>{t('components_dashboard_HostEditModal_tunnel')}</SectionHeader>
 
               <TunnelSection
                 enabled={tunnelEnabled}
@@ -841,11 +843,11 @@ export function HostEditModal() {
               </div>
 
               {/* ════════════════ APPEARANCE ════════════════ */}
-              <SectionHeader>Appearance</SectionHeader>
+              <SectionHeader>{t('components_dashboard_HostEditModal_appearance')}</SectionHeader>
 
               {/* Color swatches */}
               <div>
-                <span className={labelClass}>Color</span>
+                <span className={labelClass}>{t('components_dashboard_HostEditModal_color')}</span>
                 <div className="flex items-center gap-2 flex-wrap">
                   {/* Auto option — clears custom color */}
                   <button
@@ -865,7 +867,7 @@ export function HostEditModal() {
                     ].join(" ")}
                     style={{ background: "conic-gradient(#ef4444, #f97316, #eab308, #22c55e, #06b6d4, #8b5cf6, #ef4444)" }}
                   >
-                    <span className="sr-only">Auto</span>
+                    <span className="sr-only">{t('components_dashboard_HostEditModal_auto')}</span>
                   </button>
 
                   {HOST_COLORS.map((c) => (
@@ -902,7 +904,7 @@ export function HostEditModal() {
                     value={form.environment}
                     onChange={(v) => setField("environment", v)}
                     disabled={isBusy}
-                    placeholder="None"
+                    placeholder={t('components_dashboard_ImportSshConfigModal_none')}
                     options={[
                       { value: "", label: "None" },
                       { value: "production", label: "Production" },
@@ -922,7 +924,7 @@ export function HostEditModal() {
                     value={form.osType}
                     onChange={(v) => setField("osType", v)}
                     disabled={isBusy}
-                    placeholder="Auto"
+                    placeholder={t('components_dashboard_HostEditModal_auto')}
                     options={[
                       { value: "", label: "Auto" },
                       { value: "linux", label: "Linux" },
@@ -935,7 +937,7 @@ export function HostEditModal() {
               </div>
 
               {/* ════════════════ NOTES ════════════════ */}
-              <SectionHeader>Notes</SectionHeader>
+              <SectionHeader>{t('components_dashboard_HostEditModal_notes')}</SectionHeader>
 
               <div>
                 <label htmlFor="hem-notes" className={labelClass}>

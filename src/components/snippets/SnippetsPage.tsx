@@ -16,10 +16,12 @@ import { SnippetFolderCard } from "./SnippetFolderCard";
 import { SnippetEditModal } from "./SnippetEditModal";
 import { SnippetFolderModal } from "./SnippetFolderModal";
 import { VariableDialog } from "./VariableDialog";
+import { useTranslation } from "react-i18next";
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function SnippetsPage() {
+  const { t } = useTranslation();
   const {
     snippets,
     folders,
@@ -239,8 +241,8 @@ export function SnippetsPage() {
 
           {/* Page title */}
           <div>
-            <h1 className="text-[length:var(--text-lg)] font-semibold text-text-primary">Snippets</h1>
-            <p className="text-[length:var(--text-xs)] text-text-muted mt-1">Save frequently used commands, organize them into folders, and execute with one click</p>
+            <h1 className="text-[length:var(--text-lg)] font-semibold text-text-primary">{t('components_layout_UnifiedTabBar_snippets')}</h1>
+            <p className="text-[length:var(--text-xs)] text-text-muted mt-1">{t('components_snippets_SnippetsPage_save_frequently_used_commands_organize_them_into_folders_and_execute_with_one_click')}</p>
           </div>
 
           {/* Search bar */}

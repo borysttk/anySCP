@@ -11,6 +11,7 @@ import {
   BUILTIN_NAMES,
 } from "../../utils/snippet-resolve";
 import { ModalShell, BTN_GHOST, BTN_PRIMARY } from "../shared/ModalShell";
+import { useTranslation } from "react-i18next";
 
 interface VariableDialogProps {
   snippet: Snippet;
@@ -19,6 +20,7 @@ interface VariableDialogProps {
 }
 
 export function VariableDialog({ snippet, onExecute, onCancel }: VariableDialogProps) {
+  const { t } = useTranslation();
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
   const sessions = useSessionStore((s) => s.sessions);
   const session = activeSessionId ? (sessions.get(activeSessionId) ?? null) : null;
@@ -99,7 +101,7 @@ export function VariableDialog({ snippet, onExecute, onCancel }: VariableDialogP
 
         {builtinVars.length > 0 && (
           <div className="flex flex-col gap-3">
-            <p className="text-[length:var(--text-xs)] font-semibold uppercase tracking-widest text-text-muted">Auto-filled</p>
+            <p className="text-[length:var(--text-xs)] font-semibold uppercase tracking-widest text-text-muted">{t('components_snippets_VariableDialog_auto_filled')}</p>
             {builtinVars.map((name) => {
               const resolved = resolveBuiltin(name, session) ?? "(no active session)";
               return (
@@ -119,7 +121,7 @@ export function VariableDialog({ snippet, onExecute, onCancel }: VariableDialogP
         {userVarNames.length > 0 && (
           <div className="flex flex-col gap-3">
             {builtinVars.length > 0 && (
-              <p className="text-[length:var(--text-xs)] font-semibold uppercase tracking-widest text-text-muted">Variables</p>
+              <p className="text-[length:var(--text-xs)] font-semibold uppercase tracking-widest text-text-muted">{t('components_snippets_VariableDialog_variables')}</p>
             )}
             {userVarNames.map((name) => {
               const meta = variableMeta.find((v) => v.name === name);

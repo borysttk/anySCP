@@ -41,7 +41,7 @@ import { GroupModal } from "./GroupModal";
 import { ConnectionDialog } from "./ConnectionDialog";
 import { RecentConnections } from "./RecentConnections";
 import { toast } from "../../stores/toast-store";
-import { useIsMobileViewport } from "../../hooks/use-media-query";
+import { useTranslation } from "react-i18next";
 
 // Abort an in-flight SSH connection attempt on the Rust side. Best-effort:
 // the attempt may already have settled, in which case the backend reports it
@@ -58,6 +58,7 @@ async function cancelConnectAttempt(attemptId: string) {
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function HostsDashboard() {
+  const { t } = useTranslation();
   const { hosts, loadHosts, recentConnections, loadRecent, saveHost, deleteHost, reorderHosts } =
     useHostsStore();
   const { groups, loadGroups, createGroup, deleteGroup, reorderGroups } = useGroupsStore();
@@ -545,31 +546,25 @@ export function HostsDashboard() {
     ? groups.find((g) => g.id === selectedGroupId)
     : null;
 
-  const isMobile = useIsMobileViewport();
-
   // ─── Render ────────────────────────────────────────────────────────────────
 
   return (
     <>
       <div className="flex flex-col h-full overflow-y-scroll bg-bg-base">
-        <div className={`max-w-4xl w-full mx-auto px-4 sm:px-8 py-4 sm:py-8 flex flex-col gap-5 sm:gap-8 ${isMobile ? "pb-28" : ""}`}>
+        <div className="max-w-4xl w-full mx-auto px-8 py-8 flex flex-col gap-8">
 
           {/* ── Page title ── */}
           <div>
-            <h1 className="text-[length:var(--text-lg)] font-semibold text-text-primary">Hosts</h1>
-            <p className="text-[length:var(--text-xs)] text-text-muted mt-1">Manage your saved servers, organize them into groups, and connect with one click</p>
+            <h1 className="text-[length:var(--text-lg)] font-semibold text-text-primary">{t('components_sftp_SftpSessionPicker_hosts')}</h1>
+            <p className="text-[length:var(--text-xs)] text-text-muted mt-1">{t('components_dashboard_HostsDashboard_manage_your_saved_servers_organize_them_into_groups_and_connect_with_one_click')}</p>
           </div>
 
           {/* ── Search bar ── */}
-          {/* Sticky on mobile so the filter stays reachable while scrolling a
-              long server list. `-mx-4 px-4` lets the backdrop span the full
-              width despite the container's gutters; the negative top margin
-              cancels the parent's flex gap so nothing peeks out above it. */}
-          <div className="relative sticky sm:static -top-4 sm:top-auto z-20 -mx-4 sm:mx-0 px-4 sm:px-0 py-2 sm:py-0 bg-bg-base">
+          <div className="relative">
             <Search
               size={16}
               strokeWidth={2}
-              className="absolute left-[1.875rem] sm:left-3.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none"
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none"
               aria-hidden="true"
             />
             <input
@@ -601,17 +596,12 @@ export function HostsDashboard() {
           )}
 
           {/* ── Action buttons ── */}
-          <div className="flex flex-wrap gap-2">
+          <div className="flex gap-2">
             <button
               data-testid="new-host-button"
               onClick={() => setEditingHostId("__new__")}
               className={[
-                // Replaced by the FAB on mobile rather than shown alongside it:
-                // two controls with the accessible name "New Server" would be
-                // read twice by a screen reader. `hidden` drops it from the
-                // accessibility tree entirely (unlike opacity/visibility).
-                "hidden sm:flex",
-                "items-center gap-2 px-4 py-2 min-h-[44px] sm:min-h-0 rounded-lg text-xs font-medium uppercase tracking-wide",
+                "flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium uppercase tracking-wide",
                 "bg-bg-surface border border-border text-text-secondary",
                 "hover:border-border-focus hover:text-text-primary hover:bg-bg-overlay",
                 "transition-all duration-[var(--duration-fast)]",
@@ -627,7 +617,7 @@ export function HostsDashboard() {
               data-testid="new-s3-button"
               onClick={() => setS3DialogOpen(true)}
               className={[
-                "flex items-center gap-2 px-4 py-2 min-h-[44px] sm:min-h-0 rounded-lg text-xs font-medium uppercase tracking-wide",
+                "flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium uppercase tracking-wide",
                 "bg-bg-surface border border-border text-text-secondary",
                 "hover:border-border-focus hover:text-text-primary hover:bg-bg-overlay",
                 "transition-all duration-[var(--duration-fast)]",
@@ -643,7 +633,7 @@ export function HostsDashboard() {
               data-testid="new-group-button"
               onClick={() => setGroupModalOpen(true)}
               className={[
-                "flex items-center gap-2 px-4 py-2 min-h-[44px] sm:min-h-0 rounded-lg text-xs font-medium uppercase tracking-wide",
+                "flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium uppercase tracking-wide",
                 "bg-bg-surface border border-border text-text-secondary",
                 "hover:border-border-focus hover:text-text-primary hover:bg-bg-overlay",
                 "transition-all duration-[var(--duration-fast)]",
@@ -659,7 +649,7 @@ export function HostsDashboard() {
               data-testid="import-ssh-config-button"
               onClick={() => setImportModalOpen(true)}
               className={[
-                "flex items-center gap-2 px-4 py-2 min-h-[44px] sm:min-h-0 rounded-lg text-xs font-medium uppercase tracking-wide",
+                "flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium uppercase tracking-wide",
                 "bg-bg-surface border border-border text-text-secondary",
                 "hover:border-border-focus hover:text-text-primary hover:bg-bg-overlay",
                 "transition-all duration-[var(--duration-fast)]",
@@ -690,7 +680,7 @@ export function HostsDashboard() {
                   items={groups.map((g) => g.id)}
                   strategy={rectSortingStrategy}
                 >
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <div className="grid grid-cols-3 gap-2.5">
                     {groups.map((group) => (
                       <SortableCard key={group.id} id={group.id}>
                         <GroupCard
@@ -746,7 +736,7 @@ export function HostsDashboard() {
                   items={filteredHosts.map((h) => h.id)}
                   strategy={rectSortingStrategy}
                 >
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <div className="grid grid-cols-3 gap-2.5">
                     {filteredHosts.map((host) => (
                       <SortableCard key={host.id} id={host.id}>
                         <HostCard
@@ -789,7 +779,7 @@ export function HostsDashboard() {
                   items={filteredS3.map((c) => c.id)}
                   strategy={rectSortingStrategy}
                 >
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <div className="grid grid-cols-3 gap-2.5">
                     {filteredS3.map((conn) => (
                       <SortableCard key={conn.id} id={conn.id}>
                         <S3Card
@@ -807,34 +797,6 @@ export function HostsDashboard() {
             </section>
           )}
         </div>
-
-        {/*
-          Floating action button — the primary "add a host" affordance on
-          mobile, within thumb reach. The toolbar buttons above stay mounted
-          (they carry the e2e testids and the secondary actions); this is an
-          additional shortcut to the most common one, so it reuses the same
-          handler rather than duplicating behaviour.
-
-          `bottom` clears the BottomNav (~56px) plus the gesture inset, and the
-          scroll container gets pb-28 so the last card can still be read.
-        */}
-        {isMobile && (
-          <button
-            type="button"
-            data-testid="new-host-fab"
-            onClick={() => setEditingHostId("__new__")}
-            aria-label="New Server"
-            className={[
-              "fixed right-4 z-30 flex items-center justify-center h-14 w-14 rounded-full",
-              "bottom-[calc(1rem+56px+env(safe-area-inset-bottom))]",
-              "bg-accent text-text-inverse shadow-[var(--shadow-lg)]",
-              "active:opacity-90 transition-opacity duration-[var(--duration-fast)]",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-            ].join(" ")}
-          >
-            <Plus size={24} strokeWidth={2.2} aria-hidden="true" />
-          </button>
-        )}
       </div>
 
       {/* ── Group create modal ── */}

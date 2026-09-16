@@ -1112,20 +1112,23 @@ async fn start_native_drag(
 
             match raw_window {
                 Ok(w) => {
-                    let started = drag::start_drag(
-                        &w,
-                        drag::DragItem::Files(files),
-                        drag::Image::Raw(icon_bytes),
-                        move |result, _cursor| {
-                            let _ = tx_cb.send(Ok(matches!(result, drag::DragResult::Dropped)));
-                        },
-                        drag::Options::default(),
-                    );
-                    if let Err(e) = started {
-                        let _ = tx.send(Err(SftpError::LocalIoError(format!(
-                            "could not start drag: {e}"
-                        ))));
-                    }
+                    #[cfg(not(target_os = "android"))]
+                    {
+                        let started = drag::start_drag(
+                            &w,
+                            drag::DragItem::Files(files),
+                            drag::Image::Raw(icon_bytes),
+                            move |result, _cursor| {
+                                let _ = tx_cb.send(Ok(matches!(result, drag::DragResult::Dropped)));
+                            },
+                            drag::Options::default(),
+                        );
+                        if let Err(e) = started {
+                            let _ = tx.send(Err(SftpError::LocalIoError(format!(
+                                "could not start drag: {e}"
+                            ))));
+                        }
+                    } // close cfg block
                 }
                 Err(e) => {
                     let _ = tx.send(Err(SftpError::LocalIoError(format!(

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Folder } from "lucide-react";
 import { ModalShell, BTN_GHOST, BTN_PRIMARY } from "../shared/ModalShell";
+import { useTranslation } from "react-i18next";
 
 // ─── Folder colors ────────────────────────────────────────────────────────────
 
@@ -31,6 +32,7 @@ interface SnippetFolderModalProps {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function SnippetFolderModal({ open, onClose, onSave }: SnippetFolderModalProps) {
+  const { t } = useTranslation();
   const [name, setName] = useState("");
   const [color, setColor] = useState(FOLDER_COLORS[0]);
   const [error, setError] = useState<string | null>(null);
@@ -114,7 +116,7 @@ export function SnippetFolderModal({ open, onClose, onSave }: SnippetFolderModal
         </div>
 
         <div>
-          <span className={labelClass}>Color</span>
+          <span className={labelClass}>{t('components_dashboard_HostEditModal_color')}</span>
           <div className="flex items-center gap-2 flex-wrap">
             {FOLDER_COLORS.map((c) => (
               <button

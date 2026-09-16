@@ -1,0 +1,39 @@
+[package]
+name = "anyscp-android"
+version = "0.0.1"
+edition = "2021"
+description = "anySCP Android port — SSH/SFTP client built with Rust + Tauri"
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+russh = "0.46"
+russh-keys = "0.46"
+async-trait = "0.1"
+rusqlite = { version = "0.31", features = ["bundled"] }
+uuid = { version = "1", features = ["v4"] }
+dashmap = "6"
+thiserror = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+
+# Android-specific — desktop-only crates also available on Android
+[target.'cfg(target_os = "android")'.dependencies]
+getrandom = { version = "0.2", features = ["std"] }
+nix = { version = "0.27", features = ["fs"] }
+jni = "0.21"
+argon2 = "0.5"
+aes-gcm = "0.10"
+flate2 = "1"
+rust-s3 = { version = "0.37.1", default-features = false, features = ["tokio-rustls-tls"] }
+keyring = { version = "3", features = ["android"] }
+
+# Desktop-only (not Android)
+[target.'cfg(not(target_os = "android"))'.dependencies]
+drag = "2"
+ssh2-config = "0.7.0"
+dirs = "6"

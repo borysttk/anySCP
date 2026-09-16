@@ -1,5 +1,6 @@
 import type { TransferEvent } from "../../types";
 import { TransferRow } from "./TransferRow";
+import { useTranslation } from "react-i18next";
 
 interface TransferListProps {
   list: TransferEvent[];
@@ -12,10 +13,11 @@ interface TransferListProps {
 }
 
 export function TransferList({ list, onCancel, onRetry, onDismiss, maxHeight }: TransferListProps) {
+  const { t } = useTranslation();
   if (list.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-10 gap-2">
-        <p className="text-[length:var(--text-xs)] text-text-muted">No transfers</p>
+        <p className="text-[length:var(--text-xs)] text-text-muted">{t('components_transfers_TransferList_no_transfers')}</p>
         <p className="text-[length:var(--text-2xs)] text-text-muted/60">
           Drag files onto the explorer to upload
         </p>

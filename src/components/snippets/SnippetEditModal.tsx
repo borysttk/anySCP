@@ -4,6 +4,7 @@ import type { Snippet, SnippetFolder, SnippetVariable } from "../../types";
 import { extractVariables, parseVariables } from "../../utils/snippet-resolve";
 import { CustomSelect } from "../shared/CustomSelect";
 import { ModalShell, BTN_GHOST, BTN_PRIMARY } from "../shared/ModalShell";
+import { useTranslation } from "react-i18next";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -94,6 +95,7 @@ interface VariableRowProps {
 }
 
 function VariableRow({ variable, onChange, disabled }: VariableRowProps) {
+  const { t } = useTranslation();
   const rowInputClass = [
     "w-full rounded-md bg-bg-base border border-border px-2.5 py-1.5",
     "text-[length:var(--text-xs)] text-text-primary placeholder:text-text-muted",
@@ -118,14 +120,14 @@ function VariableRow({ variable, onChange, disabled }: VariableRowProps) {
             disabled={disabled}
             className="w-3.5 h-3.5 rounded accent-accent"
           />
-          <span className="text-[11px] text-text-muted">Required</span>
+          <span className="text-[11px] text-text-muted">{t('components_snippets_SnippetEditModal_required')}</span>
         </label>
       </div>
 
       {/* Fields in a 2-column grid */}
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <span className={rowLabelClass}>Label</span>
+          <span className={rowLabelClass}>{t('components_snippets_SnippetEditModal_label')}</span>
           <input
             type="text"
             value={variable.label ?? ""}
@@ -136,7 +138,7 @@ function VariableRow({ variable, onChange, disabled }: VariableRowProps) {
           />
         </div>
         <div>
-          <span className={rowLabelClass}>Default</span>
+          <span className={rowLabelClass}>{t('components_snippets_SnippetEditModal_default')}</span>
           <input
             type="text"
             value={variable.default_value ?? ""}
@@ -150,7 +152,7 @@ function VariableRow({ variable, onChange, disabled }: VariableRowProps) {
 
       {/* Options — full width */}
       <div>
-        <span className={rowLabelClass}>Options (comma-separated)</span>
+        <span className={rowLabelClass}>{t('components_snippets_SnippetEditModal_options_comma_separated')}</span>
         <OptionsInput
           value={variable.options}
           onChange={(opts) => onChange({ ...variable, options: opts })}
@@ -172,6 +174,7 @@ export function SnippetEditModal({
   onSave,
   onSaveAndExecute: _onSaveAndExecute,
 }: SnippetEditModalProps) {
+  const { t } = useTranslation();
   const [form, setForm] = useState<Snippet>(blankSnippet());
   const [variableMeta, setVariableMeta] = useState<SnippetVariable[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -322,7 +325,7 @@ export function SnippetEditModal({
 
           {/* Description */}
           <div>
-            <label className={labelClass}>Description</label>
+            <label className={labelClass}>{t('components_snippets_SnippetEditModal_description')}</label>
             <textarea
               value={form.description ?? ""}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value || null }))}
@@ -337,7 +340,7 @@ export function SnippetEditModal({
           <div className="grid grid-cols-2 gap-4">
             {/* Folder */}
             <div>
-              <label className={labelClass}>Folder</label>
+              <label className={labelClass}>{t('components_snippets_SnippetEditModal_folder')}</label>
               <CustomSelect
                 value={form.folder_id ?? ""}
                 onChange={(v) => setForm((f) => ({ ...f, folder_id: v || null }))}
@@ -355,7 +358,7 @@ export function SnippetEditModal({
 
             {/* Tags */}
             <div>
-              <label className={labelClass}>Tags</label>
+              <label className={labelClass}>{t('components_snippets_SnippetEditModal_tags')}</label>
               <input
                 type="text"
                 value={form.tags ?? ""}
