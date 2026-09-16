@@ -13,6 +13,7 @@ pub mod telemetry;
 pub mod transfer_common;
 mod types;
 mod vault;
+mod platform;
 
 use db::HostDb;
 use portforward::manager::PortForwardManager;

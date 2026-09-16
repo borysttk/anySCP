@@ -92,6 +92,8 @@ flate2 = "1"
 reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
 dirs = "6"
 rust-s3 = { version = "0.37.1", default-features = false, features = ["tokio-rustls-tls"] }
+ndk-context = "0.1.1"
+jni = "0.21"
 
 # Desktop-only (not Android)
 [target.'cfg(not(target_os = "android"))'.dependencies]
