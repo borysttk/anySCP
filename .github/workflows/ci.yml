@@ -99,6 +99,95 @@ jobs:
   # layer cache. Without this, every e2e shard would rebuild the image from
   # scratch — including the multi-minute `cargo install tauri-driver` compile —
   # i.e. 4× the expensive work on every run. Runs in parallel with frontend/rust.
+# Job CI: kompilacja krzyżowa na Androida
+#
+# Ten fragment NIE został wstawiony bezpośrednio do .github/workflows/ci.yml,
+# ponieważ token użyty przez agenta nie ma uprawnienia `workflows` i GitHub
+# odrzuca push modyfikujący pliki workflow. Trzeba go wkleić ręcznie.
+#
+# Instalacja:
+#   1. otwórz .github/workflows/ci.yml
+#   2. wklej poniższy blok jako nowy job — po jobie `rust`, przed `e2e-image`
+#      (zachowaj wcięcie: job zaczyna się od dwóch spacji)
+#   3. commit i push zwykłym kontem
+#
+# Równoważne polecenie lokalne: `make android-check`
+
+  # Cross-compile the Rust core for Android. This is a compile-only gate: it
+  # catches the failure mode the port is most exposed to — a desktop-only crate
+  # (keyring, drag, ssh2-config → openssl-sys, updater, process) creeping back
+  # into the default dependency set and breaking the Android build, which the
+  # desktop jobs above would never notice.
+  #
+  # `cargo check` rather than a full `tauri android build`: it exercises the
+  # entire dependency graph and every cfg-gated code path in a couple of
+  # minutes, without needing Gradle, the SDK or a signing keystore.
+  android:
+    name: Android (cross-compile check)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: temurin
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Set up Android NDK
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r26d
+          link-to-sdk: true
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          # arm64 covers effectively all modern devices; armv7 is the 32-bit
+          # fallback. x86_64 is the emulator target used for local testing.
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          key: android
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      # tauri-build reads `frontendDist: "../dist"`, so dist/ must exist before
+      # any cargo command compiles the crate — same constraint as the rust job.
+      - name: Build frontend
+        run: pnpm build
+
+      # cargo-ndk supplies the NDK sysroot and the correct linker per ABI,
+      # which plain `cargo check --target` does not configure on its own.
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk --locked
+
+      - name: Check Android targets
+        working-directory: src-tauri
+        env:
+          NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+        run: |
+          cargo ndk \
+            -t arm64-v8a \
+            -t armeabi-v7a \
+            -t x86_64 \
+            check --lib
+
+
   e2e-image:
     name: Build E2E runner image
     runs-on: ubuntu-latest
