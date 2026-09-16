@@ -1,6 +1,8 @@
 import type { CSSProperties, ReactNode } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { GripVertical } from "lucide-react";
+import { useIsMobileViewport } from "../../hooks/use-media-query";
 
 interface SortableCardProps {
   id: string;
@@ -9,18 +11,32 @@ interface SortableCardProps {
 
 /**
  * Generic drag-and-drop wrapper for dashboard cards (hosts, groups, S3) — one
- * shell replacing three near-identical per-card wrappers. The whole card is the
- * drag surface; the dashboard's sensors require a ~5px move (mouse), a 250ms
- * press (touch), or arrow keys once the card is focused (keyboard) before a drag
- * begins, so a plain click still falls through to the card's own actions.
+ * shell replacing three near-identical per-card wrappers. `attributes` wires
+ * keyboard accessibility (focusable + ARIA); `listeners` the pointer/keyboard
+ * drag gestures. We render only the visual feedback (lift + dim) while
+ * dragging — @dnd-kit drives the actual position.
  *
- * `attributes` wires keyboard accessibility (focusable + ARIA); `listeners` the
- * pointer/keyboard drag gestures. We render only the visual feedback (lift +
- * dim) while dragging — @dnd-kit drives the actual position.
+ * ## Why the drag surface differs by input type
+ *
+ * On pointer devices the whole card is draggable: the sensors require a ~5px
+ * move before a drag begins, so a plain click still reaches the card's own
+ * actions, and right-click remains available for the context menu.
+ *
+ * Touch has no equivalent escape hatch. The TouchSensor claims the gesture
+ * after a 250ms hold, which is *shorter* than the 500ms long-press that opens
+ * the context menu — so on a phone a whole-card drag surface makes the menu
+ * unreachable: every hold turns into a reorder.
+ *
+ * Rather than tuning two thresholds against each other (fragile, and a
+ * near-miss silently does the wrong thing), touch gets an explicit drag handle.
+ * Dragging and "open the menu" become distinct targets, so neither gesture has
+ * to guess at intent. The card body is then free for long-press, which
+ * `ContextMenu` renders as a bottom sheet.
  */
 export function SortableCard({ id, children }: SortableCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id });
+  const isMobile = useIsMobileViewport();
 
   const style: CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -30,6 +46,36 @@ export function SortableCard({ id, children }: SortableCardProps) {
     opacity: isDragging ? 0.5 : 1,
     zIndex: isDragging ? 10 : undefined,
   };
+
+  if (isMobile) {
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        className="relative h-full"
+        {...attributes}
+      >
+        {children}
+
+        {/*
+          Handle only — `listeners` are NOT spread on the card body, which is
+          what frees the body for long-press. touch-none keeps the browser from
+          scrolling the page once the drag starts.
+
+          44x44 hit area (WCAG 2.5.5) even though the glyph is smaller. Placed
+          top-right, clear of the card's own action buttons.
+        */}
+        <button
+          type="button"
+          aria-label="Reorder — drag to move"
+          className="absolute top-0 right-0 z-10 flex h-11 w-11 touch-none items-center justify-center text-text-muted active:text-text-primary"
+          {...listeners}
+        >
+          <GripVertical size={18} strokeWidth={1.8} aria-hidden="true" />
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div

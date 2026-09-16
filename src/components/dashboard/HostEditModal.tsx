@@ -577,7 +577,7 @@ export function HostEditModal() {
               </div>
 
               {/* Auth Type + Group row */}
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <div className="flex-1">
                   <label htmlFor="hem-auth" className={labelClass}>
                     Auth Type
@@ -766,7 +766,7 @@ export function HostEditModal() {
               />
 
               {/* Keep Alive + Default Shell row */}
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <div className="flex-1">
                   <label htmlFor="hem-keepalive" className={labelClass}>
                     Keep Alive
@@ -892,7 +892,7 @@ export function HostEditModal() {
               </div>
 
               {/* Environment + OS Type row */}
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <div className="flex-1">
                   <label htmlFor="hem-env" className={labelClass}>
                     Environment
@@ -1248,7 +1248,7 @@ function LoadingSkeleton() {
         <div className={`h-9 w-full ${skeletonClass}`} />
       </div>
       {/* Auth + group row */}
-      <div className="flex gap-3">
+      <div className="flex flex-col sm:flex-row gap-3">
         <div className="flex-1">
           <div className={`h-3 w-14 mb-2 ${skeletonClass}`} />
           <div className={`h-9 w-full ${skeletonClass}`} />
@@ -1263,7 +1263,7 @@ function LoadingSkeleton() {
         <div className={`h-3 w-20 mb-2 ${skeletonClass}`} />
         <div className={`h-9 w-full ${skeletonClass}`} />
       </div>
-      <div className="flex gap-3">
+      <div className="flex flex-col sm:flex-row gap-3">
         <div className="flex-1">
           <div className={`h-3 w-16 mb-2 ${skeletonClass}`} />
           <div className={`h-9 w-full ${skeletonClass}`} />

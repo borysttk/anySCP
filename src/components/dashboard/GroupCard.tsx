@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import type { HostGroup } from "../../types";
 import { ContextMenu } from "../shared/ContextMenu";
+import { useLongPress } from "../../hooks/use-long-press";
 import { resolveGroupIcon } from "./GroupModal";
 
 interface GroupCardProps {
@@ -20,6 +21,11 @@ export function GroupCard({ group, hostCount, isSelected, onSelect, onDelete }: 
     e.stopPropagation();
     setContextMenu({ x: e.clientX, y: e.clientY });
   };
+
+  // Touch equivalent of right-click. The card body is free for this
+  // because SortableCard moves the drag gesture onto an explicit handle
+  // on mobile — see the comment there.
+  const longPress = useLongPress(setContextMenu);
 
   const contextItems = [
     {
@@ -40,6 +46,7 @@ export function GroupCard({ group, hostCount, isSelected, onSelect, onDelete }: 
         data-group-name={group.name}
         onClick={() => onSelect(group.id)}
         onContextMenu={handleContextMenu}
+        {...longPress}
         title={group.name}
         aria-pressed={isSelected}
         className={[
