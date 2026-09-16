@@ -347,7 +347,10 @@ android-sync:
 	@mkdir -p $(ANDROID_PKG)
 	@cp $(ANDROID_SRC)/SecureStore.kt      $(ANDROID_PKG)/
 	@cp $(ANDROID_SRC)/TransferService.kt  $(ANDROID_PKG)/
+	@cp $(ANDROID_SRC)/SafBridge.kt        $(ANDROID_PKG)/
+	@cp $(ANDROID_SRC)/MainActivity.kt     $(ANDROID_PKG)/
 	@echo "copied Kotlin sources → $(ANDROID_PKG)"
+	@echo "note: MainActivity.kt overwrites the generated one (adds lifecycle + SAF hooks)"
 	@echo
 	@echo "Manual step: merge $(ANDROID_SRC)/AndroidManifest.additions.xml into"
 	@echo "  $(ANDROID_GEN)/app/src/main/AndroidManifest.xml"

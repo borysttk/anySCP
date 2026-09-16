@@ -40,6 +40,11 @@
                                    downloads go through the Storage Access
                                    Framework instead.
         READ/WRITE_EXTERNAL_STORAGE - superseded by scoped storage + SAF.
+
+      SAF itself needs no permission at all: the user grants access to one
+      specific document by choosing it in the system picker, and the resulting
+      content:// URI carries that grant. That is precisely why SafBridge.kt is
+      preferable to a storage permission.
     -->
 
     <application>

@@ -128,6 +128,11 @@ pub fn run() {
                 platform::init_cache_root(cache_dir);
             }
 
+            // Park the app handle for the Android activity lifecycle callbacks.
+            // They arrive via JNI on the platform main thread with no route to
+            // Tauri state, so they look it up here. Harmless no-op on desktop.
+            platform::lifecycle::init(app.handle().clone());
+
             let host_db = HostDb::new(&app_data_dir)
                 .map_err(|e| format!("failed to initialise database: {e}"))?;
 
@@ -277,6 +282,8 @@ pub fn run() {
             sftp::commands::sftp_copy_entries,
             // SFTP — legacy direct transfers (kept for VS Code edit workflow)
             sftp::commands::sftp_download,
+            sftp::commands::sftp_saf_begin_export,
+            sftp::commands::sftp_saf_finish_export,
             sftp::commands::sftp_drag_out,
             sftp::commands::sftp_upload,
             sftp::commands::sftp_cancel_transfer,
@@ -318,6 +325,8 @@ pub fn run() {
             // SSH
             ssh::commands::ssh_connect,
             ssh::commands::ssh_cancel_connect,
+            ssh::commands::ssh_reconnect_session,
+            ssh::commands::ssh_check_session,
             ssh::commands::ssh_split_session,
             ssh::commands::ssh_disconnect,
             ssh::commands::ssh_send_input,

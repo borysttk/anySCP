@@ -13,8 +13,8 @@ use crate::ssh::manager::SshManager;
 
 use super::transfer_manager::TransferManager;
 use super::{
-    format_permissions, validate_remote_name, ChmodSummary, SftpEntry, SftpEntryType, SftpError,
-    SftpManager, SftpSessionWrapper, TransferDirection, TransferInfo, TransferProgress,
+    format_permissions, validate_remote_name, ChmodSummary, SafExport, SftpEntry, SftpEntryType,
+    SftpError, SftpManager, SftpSessionWrapper, TransferDirection, TransferInfo, TransferProgress,
     TransferStatus,
 };
 
@@ -646,6 +646,83 @@ pub async fn sftp_chmod_recursive(
         serde_json::json!({ "applied": applied, "errors": errors.len() }),
     );
     Ok(ChmodSummary { applied, errors })
+}
+
+// ─── Mobile export (Storage Access Framework) ────────────────────────────────
+
+/// Pick a save location and return the staging path to download into.
+///
+/// Android's Scoped Storage means a downloaded file cannot simply be written to
+/// `/sdcard/Download`. The flow is therefore two-step:
+///
+/// 1. this command asks the system picker for a destination and returns a
+///    private staging path plus the opaque `content://` URI;
+/// 2. the caller downloads into the staging path, then calls
+///    [`sftp_saf_finish_export`] to move the bytes into the chosen location.
+///
+/// Staging first means a failed transfer leaves nothing behind in the user's
+/// Downloads folder — the visible result is all-or-nothing.
+///
+/// Desktop has no SAF; callers there use the dialog plugin's `save()` and pass
+/// the real path straight to `sftp_download`.
+#[cfg(target_os = "android")]
+#[tauri::command]
+pub async fn sftp_saf_begin_export(file_name: String) -> Result<SafExport, SftpError> {
+    let mime = crate::platform::saf::mime_for(&file_name);
+    let uri = crate::platform::saf::create_document(&file_name, mime)
+        .await
+        .map_err(|e| SftpError::LocalIoError(e.to_string()))?;
+
+    // Unique staging directory so two concurrent exports of the same file name
+    // cannot overwrite one another.
+    let stage_dir = crate::platform::temp_root().join(format!("saf-{}", uuid::Uuid::new_v4()));
+    tokio::fs::create_dir_all(&stage_dir)
+        .await
+        .map_err(|e| SftpError::LocalIoError(format!("could not create staging dir: {e}")))?;
+
+    Ok(SafExport {
+        staging_path: stage_dir.join(&file_name).to_string_lossy().to_string(),
+        uri,
+    })
+}
+
+#[cfg(not(target_os = "android"))]
+#[tauri::command]
+pub async fn sftp_saf_begin_export(file_name: String) -> Result<SafExport, SftpError> {
+    let _ = file_name;
+    Err(SftpError::LocalIoError(crate::platform::unsupported(
+        "Storage Access Framework",
+    )))
+}
+
+/// Copy a staged download into the previously-picked SAF destination.
+///
+/// Also removes the staging directory, so a cancelled or failed export does not
+/// accumulate cache files.
+#[cfg(target_os = "android")]
+#[tauri::command]
+pub async fn sftp_saf_finish_export(staging_path: String, uri: String) -> Result<u64, SftpError> {
+    let staged = PathBuf::from(&staging_path);
+    let written = tokio::task::spawn_blocking(move || {
+        crate::platform::saf::copy_to_uri(&PathBuf::from(&staging_path), &uri)
+    })
+    .await
+    .map_err(|e| SftpError::LocalIoError(format!("task panicked: {e}")))?
+    .map_err(|e| SftpError::LocalIoError(e.to_string()))?;
+
+    if let Some(dir) = staged.parent() {
+        let _ = tokio::fs::remove_dir_all(dir).await;
+    }
+    Ok(written)
+}
+
+#[cfg(not(target_os = "android"))]
+#[tauri::command]
+pub async fn sftp_saf_finish_export(staging_path: String, uri: String) -> Result<u64, SftpError> {
+    let _ = (staging_path, uri);
+    Err(SftpError::LocalIoError(crate::platform::unsupported(
+        "Storage Access Framework",
+    )))
 }
 
 // ─── Transfers ───────────────────────────────────────────────────────────────

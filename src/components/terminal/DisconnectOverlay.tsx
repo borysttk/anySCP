@@ -31,26 +31,15 @@ export function DisconnectOverlay({
     try {
       const { invoke } = await import("@tauri-apps/api/core");
 
-      // Try to find a saved host matching this connection — use connect_saved_host
-      // which reads credentials from the OS keychain
-      const hosts = await invoke<{ id: string; host: string; port: number; username: string }[]>("list_hosts");
-      const savedHost = hosts.find(
-        (h) => h.host === hostConfig.host && h.port === hostConfig.port && h.username === hostConfig.username,
-      );
-
-      let newSessionId: string;
-      if (savedHost) {
-        newSessionId = await invoke<string>("connect_saved_host", { hostId: savedHost.id });
-      } else {
-        newSessionId = await invoke<string>("ssh_connect", { hostConfig });
-      }
-
-      const { removeSession, addSession } = useSessionStore.getState();
-      const label = hostConfig.label || `${hostConfig.username}@${hostConfig.host}`;
-      useTabStore.getState().removeTab(sessionId);
-      removeSession(sessionId);
-      addSession(newSessionId as SessionId, hostConfig);
-      useTabStore.getState().addTab({ type: "terminal", id: newSessionId, label });
+      // Rebuild the session under its existing ID rather than opening a new one.
+      // A fresh session ID would mean a fresh tab and a fresh xterm.js instance,
+      // discarding the scrollback — which is usually the very thing the user
+      // wants to keep after a drop (logs, a command they were mid-way through
+      // reading). The backend re-resolves credentials from the keychain and
+      // applies the same retry/backoff as the automatic post-resume recovery,
+      // then reports the outcome through the normal `ssh:status` events, so the
+      // overlay disappears on its own once the session is Connected.
+      await invoke("ssh_reconnect_session", { sessionId });
     } catch (err) {
       const msg =
         err instanceof Error ? err.message

@@ -37,7 +37,42 @@ pub async fn ssh_connect(
     state: State<'_, SshManager>,
     app_handle: AppHandle,
 ) -> Result<SessionId, SshError> {
-    state.connect(host_config, app_handle, attempt_id).await
+    // Ad-hoc connection: no saved-host row, so reconnect will reuse this
+    // inline config rather than re-reading the keychain.
+    state.connect(host_config, app_handle, attempt_id, None).await
+}
+
+/// Rebuild a dead session in place, keeping its session ID.
+///
+/// Preferred over disconnect-then-`ssh_connect` for recovery, because reusing
+/// the ID keeps the tab, the pane's position in the split layout, and the
+/// xterm.js scrollback buffer. The remote shell is *not* restored — it was
+/// killed with the transport — and the terminal is told so via a banner.
+///
+/// Runs the same retry/backoff path as the automatic post-resume recovery, so
+/// manual and automatic reconnects behave identically.
+#[tauri::command]
+pub async fn ssh_reconnect_session(session_id: String, app_handle: AppHandle) {
+    crate::ssh::reconnect::reconnect_session(app_handle, session_id).await;
+}
+
+/// Probe whether a session's transport is still alive.
+///
+/// Exposed so the frontend can verify a session after the webview regains
+/// focus, covering desktop (laptop suspend/resume, Wi-Fi roaming) where there
+/// is no Android activity callback to drive the sweep.
+#[tauri::command]
+pub async fn ssh_check_session(
+    session_id: String,
+    state: State<'_, SshManager>,
+) -> Result<bool, SshError> {
+    use crate::ssh::manager::Liveness;
+    let liveness = state
+        .probe(&session_id, std::time::Duration::from_millis(2_500))
+        .await;
+    // Unknown (no such session) reports as not-alive: from the caller's point
+    // of view an absent session is equally unusable.
+    Ok(liveness == Liveness::Alive)
 }
 
 /// Abort an in-flight connection attempt identified by the frontend-supplied
@@ -553,7 +588,9 @@ pub async fn connect_saved_host(
     .map_err(|e| SshError::IoError(format!("task panicked: {e}")))??;
 
     let auth_type = auth_method_label(&config.auth_method).to_string();
-    let session_id = state.connect(config, app_handle, attempt_id).await?;
+    let session_id = state
+        .connect(config, app_handle, attempt_id, Some(host_id.clone()))
+        .await?;
 
     crate::telemetry::capture(
         "ssh_connected",
@@ -608,7 +645,7 @@ fn resolve_auth_method(host_id: &str, auth_type: &str, key_path: Option<String>)
 ///
 /// A missing jump host surfaces as a clear `"tunnel host ... not found"` error
 /// rather than the generic not-found message used for the top-level host.
-fn build_host_config_blocking(
+pub(crate) fn build_host_config_blocking(
     host_id: &str,
     db: &HostDb,
     visited: &mut Vec<String>,

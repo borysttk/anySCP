@@ -36,6 +36,30 @@ struct BareConn {
     _jump_handles: Vec<client::Handle<SshClientHandler>>,
 }
 
+/// Everything needed to rebuild a session after the transport dies.
+///
+/// `host_id` is kept separately from `config` so a reconnect can re-resolve
+/// credentials from the database and keychain rather than replaying a snapshot:
+/// a password rotated while the app slept would otherwise fail forever. The
+/// inline `config` is the fallback for ad-hoc connections that were never saved.
+#[derive(Clone)]
+pub struct SessionOrigin {
+    /// Set when the session came from a saved host (`connect_saved_host`).
+    pub host_id: Option<String>,
+    pub config: HostConfig,
+}
+
+/// Outcome of a liveness probe against a live session.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Liveness {
+    /// The transport answered — the session is usable.
+    Alive,
+    /// The transport is gone, or stopped answering within the probe timeout.
+    Dead,
+    /// No such session (already closed, or a split pane that was torn down).
+    Unknown,
+}
+
 /// Manages all active SSH sessions. Stored as Tauri managed state.
 pub struct SshManager {
     sessions: DashMap<String, SshSession>,
@@ -46,6 +70,10 @@ pub struct SshManager {
     /// running; cancelling its token aborts the attempt before any session is
     /// registered, so no ghost session or lingering handle is left behind.
     pending_connects: DashMap<String, CancellationToken>,
+    /// How to rebuild each PTY session, keyed by session ID. Populated on
+    /// connect and dropped on disconnect. Split panes are absent on purpose —
+    /// see `reconnect_in_place`.
+    origins: DashMap<String, SessionOrigin>,
 }
 
 impl SshManager {
@@ -54,6 +82,7 @@ impl SshManager {
             sessions: DashMap::new(),
             bare_handles: DashMap::new(),
             pending_connects: DashMap::new(),
+            origins: DashMap::new(),
         }
     }
 
@@ -85,11 +114,15 @@ impl SshManager {
     }
 
     /// Establish a new SSH connection and return its SessionId.
+    /// `host_id` is the saved-host row this connection came from, when there is
+    /// one. It is recorded so a later reconnect can re-resolve credentials from
+    /// the keychain instead of replaying a stale snapshot.
     pub async fn connect(
         &self,
         config: HostConfig,
         app_handle: AppHandle,
         attempt_id: Option<String>,
+        host_id: Option<String>,
     ) -> Result<SessionId, SshError> {
         let session_id = SessionId::new();
         let sid = session_id.0.clone();
@@ -168,6 +201,13 @@ impl SshManager {
 
         let session = outcome?;
         self.sessions.insert(sid.clone(), session);
+        self.origins.insert(
+            sid.clone(),
+            SessionOrigin {
+                host_id: host_id.clone(),
+                config,
+            },
+        );
 
         Ok(session_id)
     }
@@ -445,6 +485,133 @@ impl SshManager {
         entry.value().resize_pty(cols, rows).await
     }
 
+    /// Session IDs of every live PTY session, in no particular order.
+    pub fn session_ids(&self) -> Vec<String> {
+        self.sessions.iter().map(|e| e.key().clone()).collect()
+    }
+
+    /// How to rebuild a session, if it is reconnectable.
+    pub fn origin(&self, session_id: &str) -> Option<SessionOrigin> {
+        self.origins.get(session_id).map(|e| e.value().clone())
+    }
+
+    /// Probe whether a session's transport is still alive.
+    ///
+    /// `Handle::is_closed()` alone is not enough: after Android thaws the
+    /// process a socket is frequently dead without russh having noticed, so the
+    /// handle still reports open. We therefore also try to actually *use* the
+    /// connection — opening a throwaway channel forces a round-trip that a dead
+    /// transport cannot complete.
+    ///
+    /// The probe is racing a timeout rather than waiting for TCP to give up,
+    /// which on a frozen mobile link can take minutes.
+    pub async fn probe(&self, session_id: &str, timeout: std::time::Duration) -> Liveness {
+        let handle = {
+            let Some(entry) = self.sessions.get(session_id) else {
+                return Liveness::Unknown;
+            };
+            entry.value().ssh_handle()
+        };
+
+        // Cheap synchronous check first — catches the case russh already knows
+        // about without paying for a round-trip.
+        if handle.lock().await.is_closed() {
+            return Liveness::Dead;
+        }
+
+        // The lock is held across the probe, which briefly blocks SFTP channel
+        // opens on the same connection. That is acceptable: the probe is
+        // timeout-bounded, and if it fails the connection is being rebuilt
+        // anyway.
+        let probe = async {
+            let mut guard = handle.lock().await;
+            guard.channel_open_session().await
+        };
+
+        match tokio::time::timeout(timeout, probe).await {
+            Ok(Ok(channel)) => {
+                // Immediately give the channel back; we only wanted the round-trip.
+                let _ = channel.close().await;
+                Liveness::Alive
+            }
+            // A refusal still proves the transport carried a request and the
+            // peer answered, so the session is alive even if channel limits
+            // are exhausted.
+            Ok(Err(russh::Error::ChannelOpenFailure(_))) => Liveness::Alive,
+            Ok(Err(_)) | Err(_) => Liveness::Dead,
+        }
+    }
+
+    /// Tear down a dead session and rebuild it **under the same session ID**.
+    ///
+    /// Reusing the ID is the whole point: the frontend keeps its tab, its pane
+    /// in the layout tree, and — critically — the xterm.js scrollback buffer,
+    /// which holds output the user may still need to read or copy. Allocating a
+    /// fresh ID (as the manual reconnect button used to do) throws all of that
+    /// away.
+    ///
+    /// The remote PTY state is *not* recovered: the old shell received SIGHUP
+    /// when the transport died, so this opens a brand-new shell in the home
+    /// directory. Callers are expected to tell the user, which is why
+    /// `reconnect_session` writes a banner into the terminal first.
+    ///
+    /// Split panes are not reconnectable — they are additional channels on a
+    /// parent connection and have no origin of their own. They return
+    /// `SessionNotFound` and stay disconnected until the user acts.
+    pub async fn reconnect_in_place(
+        &self,
+        session_id: &str,
+        config: HostConfig,
+        app_handle: AppHandle,
+    ) -> Result<(), SshError> {
+        // Drop the old session first so its reader task stops emitting output
+        // and the socket is released before we dial again. Errors are ignored:
+        // the transport is already dead by definition.
+        if let Some((_, old)) = self.sessions.remove(session_id) {
+            let _ = old.disconnect().await;
+        }
+
+        let _ = app_handle.emit(
+            "ssh:status",
+            &SshStatusPayload {
+                session_id: session_id.to_string(),
+                status: ConnectionStatus::Connecting,
+            },
+        );
+
+        let keepalive_secs = config.keep_alive_interval.unwrap_or(0) as u64;
+        let russh_config = Arc::new(client::Config {
+            keepalive_interval: if keepalive_secs > 0 {
+                Some(std::time::Duration::from_secs(keepalive_secs))
+            } else {
+                None
+            },
+            keepalive_max: 3,
+            ..Default::default()
+        });
+
+        let (handle, jump_handles) = Self::establish(&config, russh_config).await?;
+
+        let session = SshSession::open_pty(
+            handle,
+            Arc::new(jump_handles),
+            session_id.to_string(),
+            80,
+            24,
+            app_handle,
+            config.default_shell.clone(),
+            // Startup commands are intentionally not replayed. They may not be
+            // idempotent (think `tmux new-session`), and a reconnect is not a
+            // fresh user-initiated connection.
+            None,
+        )
+        .await?;
+
+        self.sessions.insert(session_id.to_string(), session);
+        info!(session_id = %session_id, host = %config.host, "SSH session reconnected in place");
+        Ok(())
+    }
+
     /// Disconnect and remove a session.
     pub async fn disconnect(
         &self,
@@ -463,6 +630,10 @@ impl SshManager {
         // check both so a no-PTY connection (e.g. an explorer connect whose
         // cancel landed after the handshake settled) can be torn down through
         // this same command instead of lingering in `bare_handles` forever.
+        // The session is going away for good, so it must not be resurrected by
+        // a later health sweep.
+        self.origins.remove(session_id);
+
         if let Some((_, session)) = self.sessions.remove(session_id) {
             session.disconnect().await?;
         } else if let Some((_, bare)) = self.bare_handles.remove(session_id) {

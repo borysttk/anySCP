@@ -18,6 +18,8 @@
 //!    can show the user.
 
 pub mod foreground;
+pub mod lifecycle;
+pub mod saf;
 
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;

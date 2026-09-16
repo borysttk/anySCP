@@ -86,6 +86,12 @@ Kopiuje wersjonowane pliki z `src-tauri/android/` do wygenerowanego drzewa:
 |---|---|
 | `SecureStore.kt` | `EncryptedSharedPreferences` + Android Keystore — backend dla modułu `vault` |
 | `TransferService.kt` | Foreground Service podtrzymujący transfery w tle |
+| `SafBridge.kt` | Storage Access Framework — picker i zapis przez `content://` |
+| `MainActivity.kt` | **nadpisuje** wygenerowaną aktywność; dodaje hooki `onResume`/`onPause` i przekazywanie wyników pickera |
+
+> `MainActivity.kt` zastępuje plik wygenerowany przez `tauri android init`.
+> Jeśli przyszła wersja Tauri zmieni klasę bazową aktywności, trzeba pogodzić
+> nasz plik z nowym wygenerowanym, a nie odwrotnie.
 
 **Polecenie trzeba powtórzyć po każdym ponownym `android init`** — regeneracja
 czyści katalog.
@@ -224,18 +230,69 @@ adb install -r src-tauri/gen/android/app/build/outputs/apk/universal/release/app
 
 ---
 
-## 8. Czego jeszcze nie ma (Faza 3–5)
+## 8. Reconnect i SAF — jak to działa
+
+### Reconnect po powrocie z tła
+
+Android zamraża proces w tle i po cichu zabija gniazda TCP. Po powrocie mapa
+sesji w Rust nadal wygląda zdrowo, a naciśnięte klawisze znikają w martwym
+gnieździe.
+
+Przepływ:
+
+1. `MainActivity.onResume()` → JNI → `platform::lifecycle::on_resume()`
+2. `ssh::reconnect::resume_sweep()` sonduje **równolegle** każdą sesję
+   (`probe`, timeout 2,5 s) — otwarcie testowego kanału wymusza round-trip,
+   bo samo `Handle::is_closed()` nie wykrywa zamrożonego gniazda
+3. martwe sesje przechodzą przez `reconnect_in_place()` — **ten sam
+   `session_id`**, więc zakładka, układ paneli i bufor `xterm.js` zostają
+4. 3 próby, backoff 750 ms → 1,5 s → 3 s; błąd uwierzytelnienia przerywa
+   natychmiast (kolejne próby tylko zbliżają do blokady konta na serwerze)
+
+**Czego reconnect NIE odtwarza:** zdalna powłoka dostała SIGHUP razem
+z zerwaniem transportu. Katalog roboczy, zmienne środowiskowe, historia
+i uruchomione procesy przepadają — to nowa powłoka. Użytkownik dostaje o tym
+jawny komunikat w terminalu (żółty baner przy zerwaniu, zielony z ostrzeżeniem
+po wznowieniu). Bufor przewijania jest zachowany, więc można skopiować logi
+sprzed zerwania.
+
+Przetrwanie sesji wymagałoby multipleksera (`tmux`/`screen`) po stronie
+serwera, czego nie można założyć — routery z BusyBox i minimalne kontenery
+często go nie mają. Planowane jako opcjonalna flaga per-host, nie domyślnie.
+
+Ta sama ścieżka obsługuje przycisk „Reconnect” w `DisconnectOverlay`, więc
+ręczny i automatyczny reconnect zachowują się identycznie.
+
+### Zapis plików (SAF)
+
+Scoped Storage (API 29+) blokuje zapis do `/sdcard/Download`. Pobieranie
+jest dwuetapowe:
+
+1. `sftp_saf_begin_export` → picker systemowy → zwraca prywatną ścieżkę
+   roboczą **oraz** URI `content://`
+2. transfer zapisuje do ścieżki roboczej
+3. `sftp_saf_finish_export` kopiuje do wybranej lokalizacji i sprząta cache
+
+Etap pośredni jest celowy: zapis strumieniowy prosto do URI zostawiłby
+obcięty plik w folderze Pobrane, gdyby połączenie padło w trakcie. Tak wynik
+jest atomowy z punktu widzenia użytkownika.
+
+Frontend nie widzi tego podziału — `pickDownloadTarget()`
+(`src/lib/download-target.ts`) zwraca ścieżkę i `finalize()`/`discard()`,
+a na desktopie po prostu deleguje do `save()` z plugin-dialog.
+
+## 9. Czego jeszcze nie ma
 
 Świadome ograniczenia obecnego stanu:
 
 - **UI jest desktopowy** — brak layoutu mobilnego, bottom-nav i bottom-sheetów
-  zamiast menu kontekstowych (Faza 4).
-- **Pobieranie plików** zapisuje do katalogu prywatnego aplikacji; integracja
-  z SAF (`ACTION_CREATE_DOCUMENT`) jest zaplanowana na Fazę 3.
+  zamiast menu kontekstowych (Faza 5).
+- **Pobieranie katalogów** nadal używa `enqueue_download` z lokalnym
+  katalogiem; SAF obsługuje na razie pojedyncze pliki
+  (`ACTION_OPEN_DOCUMENT_TREE` jest gotowe w `SafBridge.kt`, ale niepodpięte).
 - **Import kluczy SSH** wymaga pickera SAF — obecnie `~/.ssh` nie istnieje,
   więc lista kluczy jest pusta (celowo, nie jest to błąd).
-- **Reconnect po `onResume`** nie jest jeszcze zaimplementowany; po dłuższym
-  uśpieniu sesję trzeba wznowić ręcznie.
+- **Upload** nie ma jeszcze pickera źródłowego (`ACTION_OPEN_DOCUMENT`).
 - **S3 i port-forwarding** kompilują się, ale ich UI nie był adaptowany —
   poza zakresem v1 zgodnie z ustaleniami.
 
