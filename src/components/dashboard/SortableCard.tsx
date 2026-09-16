@@ -49,10 +49,12 @@ export function SortableCard({ id, children }: SortableCardProps) {
 
   if (isMobile) {
     return (
+      // pl-11 opens a gutter the handle lives in, so the handle never overlaps
+      // the card's own content or its top-right action strip.
       <div
         ref={setNodeRef}
         style={style}
-        className="relative h-full"
+        className="relative h-full pl-11"
         {...attributes}
       >
         {children}
@@ -62,13 +64,16 @@ export function SortableCard({ id, children }: SortableCardProps) {
           what frees the body for long-press. touch-none keeps the browser from
           scrolling the page once the drag starts.
 
-          44x44 hit area (WCAG 2.5.5) even though the glyph is smaller. Placed
-          top-right, clear of the card's own action buttons.
+          Left gutter, full card height: a 44px-wide strip (WCAG 2.5.5) that is
+          easy to hit with a thumb. It must NOT go top-right: the cards render a
+          CardActionStrip at `top-2 right-2`, and a 44x44 handle at `top-0
+          right-0` would sit straight on top of its rightmost button (Explorer
+          on HostCard, Edit on S3Card), swallowing those taps.
         */}
         <button
           type="button"
           aria-label="Reorder — drag to move"
-          className="absolute top-0 right-0 z-10 flex h-11 w-11 touch-none items-center justify-center text-text-muted active:text-text-primary"
+          className="absolute left-0 top-0 bottom-0 z-10 flex w-11 touch-none items-center justify-center text-text-muted active:text-text-primary"
           {...listeners}
         >
           <GripVertical size={18} strokeWidth={1.8} aria-hidden="true" />

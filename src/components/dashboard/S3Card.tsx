@@ -135,7 +135,7 @@ export function S3Card({ conn, onConnect, onEdit, onDuplicate, onDelete }: S3Car
 
         {/* Connection info */}
         <div className="min-w-0">
-          <p className="text-[length:var(--text-sm)] font-medium text-text-primary truncate leading-tight pr-5">
+          <p className="text-[length:var(--text-sm)] font-medium text-text-primary truncate leading-tight pr-12 sm:pr-5">
             {displayName}
           </p>
           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">

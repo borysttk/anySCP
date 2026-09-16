@@ -247,7 +247,7 @@ export function HostCard({ host, onConnect, onExplore, onEdit, onDelete, onDupli
 
         {/* Host info */}
         <div className="min-w-0">
-          <p className="text-[length:var(--text-sm)] font-medium text-text-primary truncate leading-tight pr-24">
+          <p className="text-[length:var(--text-sm)] font-medium text-text-primary truncate leading-tight pr-36 sm:pr-24">
             {displayName}
           </p>
           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">

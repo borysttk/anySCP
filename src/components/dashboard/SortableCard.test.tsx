@@ -62,9 +62,28 @@ describe("SortableCard", () => {
     mockViewport(true);
     renderCard();
     const handle = screen.getByRole("button", { name: /Reorder/ });
-    // WCAG 2.5.5 — the glyph is smaller, the hit area must not be.
-    expect(handle.className).toContain("h-11");
+    // WCAG 2.5.5 — the glyph is smaller, the hit area must not be. The strip
+    // spans the card's full height, so only the width is a fixed 44px.
     expect(handle.className).toContain("w-11");
+    expect(handle.className).toMatch(/top-0/);
+    expect(handle.className).toMatch(/bottom-0/);
+  });
+
+  it("puts the handle in a left gutter, clear of the action strip", () => {
+    mockViewport(true);
+    const { container } = renderCard();
+    const handle = screen.getByRole("button", { name: /Reorder/ });
+
+    // Regression guard. HostCard and S3Card render a CardActionStrip at
+    // `top-2 right-2`; a 44x44 handle anchored top-right covers its rightmost
+    // button — Explorer on HostCard, which ~15 e2e specs click to open SFTP.
+    // The handle must stay on the left, and the wrapper must reserve room for
+    // it so it never sits on top of card content either.
+    expect(handle.className).toContain("left-0");
+    expect(handle.className).not.toContain("right-0");
+    expect(
+      (container.firstElementChild as HTMLElement).className,
+    ).toContain("pl-11");
   });
 
   it("keeps the card body free of drag listeners on mobile", () => {
