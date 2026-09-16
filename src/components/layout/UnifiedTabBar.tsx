@@ -20,6 +20,7 @@ import {
 import { useTabStore, type UnifiedTab, type PageId } from "../../stores/tab-store";
 import { useSessionStore, countPanes, getTopDirection } from "../../stores/session-store";
 import { useUiStore } from "../../stores/ui-store";
+import { closeTab, isCloseable } from "./close-tab";
 
 // ─── Icon mapping ───────────────────────────────────────────────────────────
 
@@ -59,7 +60,6 @@ export function UnifiedTabBar() {
   const tabs = useTabStore((s) => s.tabs);
   const activeTabId = useTabStore((s) => s.activeTabId);
   const setActiveTab = useTabStore((s) => s.setActiveTab);
-  const removeTab = useTabStore((s) => s.removeTab);
 
   const sessions = useSessionStore((s) => s.sessions);
   const terminalTabs = useSessionStore((s) => s.tabs);
@@ -115,31 +115,10 @@ export function UnifiedTabBar() {
     if (el) el.scrollBy({ left: dir * el.clientWidth * 0.75, behavior: "smooth" });
   };
 
+  // Shared with the mobile session drawer — see ./close-tab.
   const handleClose = async (tabId: string, tab: UnifiedTab, e: React.MouseEvent) => {
     e.stopPropagation();
-    const { invoke } = await import("@tauri-apps/api/core");
-
-    if (tab.type === "terminal") {
-      // Disconnect all sessions in the terminal layout tree
-      const termTab = terminalTabs.get(tabId);
-      if (termTab) {
-        const sessionIds = collectLayoutIds(termTab.layout);
-        for (const sid of sessionIds) {
-          try { await invoke("ssh_disconnect", { sessionId: sid }); } catch { /* ok */ }
-          useSessionStore.getState().removeSession(sid);
-        }
-      }
-    } else if (tab.type === "sftp") {
-      try { await invoke("sftp_close", { sftpSessionId: tabId }); } catch { /* ok */ }
-      const { useSftpStore } = await import("../../stores/sftp-store");
-      useSftpStore.getState().closeSession(tabId);
-    } else if (tab.type === "s3") {
-      try { await invoke("s3_disconnect", { s3SessionId: tabId }); } catch { /* ok */ }
-      const { useS3Store } = await import("../../stores/s3-store");
-      useS3Store.getState().closeSession(tabId);
-    }
-
-    removeTab(tabId);
+    await closeTab(tabId, tab);
   };
 
   if (tabOrder.length === 0) return null;
@@ -194,7 +173,7 @@ export function UnifiedTabBar() {
             isZoomed = isActive && zoomedPaneId !== null;
           }
 
-          const closeable = !(tab.type === "page" && tab.page === "hosts");
+          const closeable = isCloseable(tab);
 
           return (
             <div
@@ -334,11 +313,6 @@ export function UnifiedTabBar() {
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
-
-function collectLayoutIds(node: import("../../types").LayoutNode): string[] {
-  if (node.type === "pane") return [node.sessionId];
-  return [...collectLayoutIds(node.children[0]), ...collectLayoutIds(node.children[1])];
-}
 
 function getFirstSessionIdFromTab(tabId: string): string | null {
   const tab = useSessionStore.getState().tabs.get(tabId);
