@@ -920,6 +920,7 @@ pub async fn s3_clear_finished_transfers(
 /// Download an S3 object to a temp directory, open it in an external editor,
 /// watch for saves, and re-upload to S3 each time the file is saved. `editor` is
 /// the editor to use; when `None`, an installed one is auto-detected.
+#[cfg(not(target_os = "android"))]
 #[tauri::command]
 #[instrument(skip(s3_manager, app_handle, editor), fields(s3_session_id = %s3_session_id, key = %key))]
 pub async fn s3_edit_external(
@@ -1083,4 +1084,17 @@ pub async fn s3_edit_external(
     });
 
     Ok(())
+}
+
+/// Android stub — see `sftp_edit_external` for the rationale.
+#[cfg(target_os = "android")]
+#[tauri::command]
+pub async fn s3_edit_external(
+    _s3_session_id: String,
+    _key: String,
+    _editor: Option<crate::editors::EditorConfig>,
+) -> Result<(), S3Error> {
+    Err(S3Error::IoError(crate::platform::unsupported(
+        "Editing in an external editor",
+    )))
 }

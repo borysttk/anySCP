@@ -1,0 +1,14 @@
+{
+  "$schema": "../gen/schemas/mobile-schema.json",
+  "identifier": "mobile",
+  "description": "Capability for the main window on Android. Mirrors the desktop set minus the updater and process plugins, which have no Android implementation — Google Play handles distribution, and apps cannot relaunch themselves.",
+  "platforms": ["android"],
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "opener:default",
+    "dialog:default",
+    "clipboard-manager:allow-read-text",
+    "clipboard-manager:allow-write-text"
+  ]
+}

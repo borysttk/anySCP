@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Manifest fragments for the anySCP Android build.
+
+  `tauri android init` generates gen/android/app/src/main/AndroidManifest.xml,
+  which is gitignored (it is regenerated output). The elements below are the
+  anySCP-specific additions that must be merged into it; `make android-sync`
+  applies them, and docs/android-port/BUILD.md documents the manual steps.
+
+  This file is a reference fragment, not a buildable manifest on its own.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+      INTERNET is the only permission strictly required to open SSH/SFTP
+      connections. ACCESS_NETWORK_STATE lets the app tell "no connectivity"
+      apart from "host refused", which materially improves error messages.
+    -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!--
+      Keeps long file transfers running when the app is backgrounded. The
+      DATA_SYNC subtype is mandatory from Android 14 (API 34) and must match
+      the android:foregroundServiceType on the service element below.
+    -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+
+    <!--
+      Required from Android 13 (API 33) to display the transfer notification.
+      Runtime-requested on first transfer; if denied the transfer still runs,
+      it just has no visible progress indicator.
+    -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!--
+      Deliberately NOT requested:
+        MANAGE_EXTERNAL_STORAGE  - Play rejects it for a file-transfer client;
+                                   downloads go through the Storage Access
+                                   Framework instead.
+        READ/WRITE_EXTERNAL_STORAGE - superseded by scoped storage + SAF.
+    -->
+
+    <application>
+
+        <!--
+          android:exported="false" - nothing outside the app may start this.
+          stopWithTask="false"     - a transfer survives the user swiping the
+                                     task away; it is stopped explicitly when
+                                     the queue drains.
+        -->
+        <service
+            android:name=".TransferService"
+            android:exported="false"
+            android:stopWithTask="false"
+            android:foregroundServiceType="dataSync" />
+
+        <!--
+          Merge onto the generated <activity android:name=".MainActivity">:
+
+            android:windowSoftInputMode="adjustResize"
+              The webview must shrink when the IME opens, otherwise the shell
+              prompt sits behind the keyboard. useVisualViewport() depends on
+              this to recompute the terminal fit.
+
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode"
+              Handle rotation in-process. Without it Android recreates the
+              activity, which tears down the webview and drops every open SSH
+              session on a device rotation.
+        -->
+
+    </application>
+</manifest>

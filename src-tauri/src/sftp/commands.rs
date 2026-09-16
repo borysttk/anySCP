@@ -1015,6 +1015,7 @@ async fn stage_entries(
 /// signal we await, so if a platform fails to fire it the command stays pending
 /// for that drag; the frontend's re-entrancy guard still recovers on the next
 /// attempt and staged files are reaped by `sweep_stale_dragout`.
+#[cfg(not(target_os = "android"))]
 async fn start_native_drag(
     app: AppHandle,
     window: Window,
@@ -1079,6 +1080,7 @@ async fn start_native_drag(
 /// copied out); on a drop we leave it for the OS to finish copying and reap it
 /// on a later drag via `sweep_stale_dragout` (the OS gives no copy-complete
 /// signal). Failures remove the partial tree before returning.
+#[cfg(not(target_os = "android"))]
 #[tauri::command]
 #[instrument(skip(app, window, sftp_manager), fields(sftp_session_id = %sftp_session_id))]
 pub async fn sftp_drag_out(
@@ -1093,7 +1095,7 @@ pub async fn sftp_drag_out(
         session_ref.sftp.clone()
     };
 
-    let dragout_root = std::env::temp_dir().join("anyscp-dragout");
+    let dragout_root = crate::platform::temp_root().join("anyscp-dragout");
     sweep_stale_dragout(&dragout_root).await;
 
     let stage = dragout_root.join(uuid::Uuid::new_v4().to_string());
@@ -1132,6 +1134,22 @@ pub async fn sftp_drag_out(
     }
 
     Ok(DragOutResult { dropped, count })
+}
+
+/// Android has no desktop to drag files onto, and the `drag` crate (GTK /
+/// AppKit / Win32) is not compiled for this target. The command stays
+/// registered so the webview receives a descriptive error rather than an
+/// opaque "command not found"; the mobile Explorer uses an explicit
+/// download action instead.
+#[cfg(target_os = "android")]
+#[tauri::command]
+pub async fn sftp_drag_out(
+    _sftp_session_id: String,
+    _remote_paths: Vec<String>,
+) -> Result<DragOutResult, SftpError> {
+    Err(SftpError::LocalIoError(crate::platform::unsupported(
+        "Dragging files out to the desktop",
+    )))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1397,6 +1415,7 @@ pub async fn sftp_cancel_transfer(
 /// Download a remote file to a temp directory, open it in an external editor,
 /// watch for saves, and re-upload each time the file is saved. `editor` is the
 /// editor to use; when `None`, an installed one is auto-detected.
+#[cfg(not(target_os = "android"))]
 #[tauri::command]
 #[instrument(skip(sftp_manager, app_handle, editor), fields(sftp_session_id = %sftp_session_id, remote_path = %remote_path))]
 pub async fn sftp_edit_external(
@@ -1919,6 +1938,22 @@ pub async fn sftp_set_concurrency(
     }
     transfer_manager.set_max_concurrent(max_concurrent);
     Ok(())
+}
+
+/// Android cannot launch an external editor: apps may not spawn arbitrary
+/// executables, and there is no shared filesystem another app could write
+/// back into. Registered so the webview gets a descriptive error rather than
+/// an opaque "command not found".
+#[cfg(target_os = "android")]
+#[tauri::command]
+pub async fn sftp_edit_external(
+    _sftp_session_id: String,
+    _remote_path: String,
+    _editor: Option<crate::editors::EditorConfig>,
+) -> Result<(), SftpError> {
+    Err(SftpError::LocalIoError(crate::platform::unsupported(
+        "Editing in an external editor",
+    )))
 }
 
 #[cfg(test)]

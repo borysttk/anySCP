@@ -84,10 +84,17 @@ pub fn capture(event: &str, properties: Value) {
 /// The ID is a random UUID that is persisted to disk on first launch.  It is
 /// not linked to any user account, email address, or system identity.
 fn get_or_create_device_id() -> String {
-    let id_path = dirs::data_dir()
+    // `dirs::data_dir()` has no meaningful answer on Android — it resolves
+    // against XDG/HOME conventions that do not exist in the app sandbox — so
+    // the id lives in the cache root seeded from Tauri's app_cache_dir().
+    #[cfg(target_os = "android")]
+    let base = crate::platform::temp_root();
+    #[cfg(not(target_os = "android"))]
+    let base = dirs::data_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join("com.macnev2013.anyscp")
-        .join(".device_id");
+        .join("com.macnev2013.anyscp");
+
+    let id_path = base.join(".device_id");
 
     if let Ok(id) = std::fs::read_to_string(&id_path) {
         let trimmed = id.trim().to_string();

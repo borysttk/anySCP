@@ -47,9 +47,6 @@ dashmap = "6"
 # SQLite persistence
 rusqlite = { version = "0.31", features = ["bundled"] }
 
-# File watching (for edit-in-vscode re-upload on save)
-notify = { version = "7", default-features = false, features = ["macos_kqueue"] }
-
 # SFTP
 russh-sftp = "2.1"
 
@@ -60,26 +57,11 @@ tokio-util = { version = "0.7" }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
-# OS credential store: macOS Keychain (apple-native), Windows DPAPI
-# (windows-native), Linux kernel keyutils (linux-native — name is misleading;
-# it's the keyutils backend, not libsecret). On Linux, PAM normally sets up
-# a session keyring on login; in containers you need `keyctl session` + a
-# non-default seccomp profile.
-keyring = { version = "3", features = ["apple-native", "linux-native", "windows-native"] }
 tauri-plugin-dialog = "2.6.0"
-tauri-plugin-updater = "2"
-tauri-plugin-process = "2"
 # Native clipboard read/write. The webview's navigator.clipboard.readText() is
 # blocked in the macOS WKWebView, so terminal paste (#71) reads through this.
+# Supported on Android for read_text/write_text, which is all we use.
 tauri-plugin-clipboard-manager = "2.3.2"
-# Native OS drag-out: hands real local file handles to the OS so files can be
-# dragged from the Explorer onto the desktop/Finder. The HTML5 DataTransfer API
-# cannot do this from a webview (see drag-out comment in ExplorerFileTable). We
-# use the `drag` crate directly (rather than tauri-plugin-drag) so the drag is
-# driven from a backend command that only ever hands the OS validated staging
-# paths — the webview can't name an arbitrary local file to drag out.
-drag = "2"
-ssh2-config = "0.7.0"
 rust-s3 = { version = "0.37.1", default-features = false, features = ["tokio-rustls-tls"] }
 
 # Encrypted backup/restore: Argon2id key derivation + AES-256-GCM, written as a
@@ -95,6 +77,72 @@ flate2 = "1"
 # Telemetry
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 dirs = "6"
+
+# ---------------------------------------------------------------------------
+# Desktop-only dependencies
+# ---------------------------------------------------------------------------
+#
+# Everything below either has no Android implementation or drags in C libraries
+# that would have to be cross-compiled for four ABIs. Gating them here is what
+# makes `cargo build --target aarch64-linux-android` resolve at all — see
+# docs/android-port/01-tech-stack-audit.md §1.2 for the full dependency audit.
+[target.'cfg(not(target_os = "android"))'.dependencies]
+# OS credential store: macOS Keychain (apple-native), Windows DPAPI
+# (windows-native), Linux kernel keyutils (linux-native — name is misleading;
+# it's the keyutils backend, not libsecret). On Linux, PAM normally sets up
+# a session keyring on login; in containers you need `keyctl session` + a
+# non-default seccomp profile.
+#
+# keyring 3.x covers Linux/FreeBSD/OpenBSD/Windows/macOS/iOS but NOT Android;
+# Android uses EncryptedSharedPreferences instead (src/vault/android_store.rs).
+keyring = { version = "3", features = ["apple-native", "linux-native", "windows-native"] }
+
+# Native OS drag-out: hands real local file handles to the OS so files can be
+# dragged from the Explorer onto the desktop/Finder. The HTML5 DataTransfer API
+# cannot do this from a webview (see drag-out comment in ExplorerFileTable). We
+# use the `drag` crate directly (rather than tauri-plugin-drag) so the drag is
+# driven from a backend command that only ever hands the OS validated staging
+# paths — the webview can't name an arbitrary local file to drag out.
+#
+# Depends on GTK/gdkx11 (Linux), objc2-app-kit (macOS) and windows (Win32).
+# There is no "drag a file onto the desktop" concept on Android.
+drag = "2"
+
+# ~/.ssh/config parsing. Its build-dependencies pull git2 -> libgit2-sys ->
+# openssl-sys + libssh2-sys, i.e. C libraries needing a cross-compiled OpenSSL
+# per ABI. Android has no ~/.ssh/config, so the whole import feature is desktop-only.
+ssh2-config = "0.7.0"
+
+# In-app self-update. Officially unsupported on Android/iOS, and Google Play
+# forbids apps installing their own updates — Play handles distribution instead.
+tauri-plugin-updater = "2"
+
+# Process control (relaunch/exit). Officially unsupported on Android/iOS.
+tauri-plugin-process = "2"
+
+# File watching for the edit-in-external-editor re-upload flow. The `notify`
+# crate itself builds for Android (inotify), but the feature it serves —
+# launching VS Code on a staged temp file — cannot work there, so it follows
+# the editors module.
+notify = { version = "7", default-features = false, features = ["macos_kqueue"] }
+
+# ---------------------------------------------------------------------------
+# Android-only dependencies
+# ---------------------------------------------------------------------------
+[target.'cfg(target_os = "android")'.dependencies]
+# JNI bridge to the Kotlin SecureStore helper (EncryptedSharedPreferences).
+# Already present transitively via tao/wry; declared explicitly because we
+# call it directly from vault/android_store.rs.
+jni = "0.21"
+# Supplies the JavaVM + Activity pointers that Tauri's Android runtime
+# initialises at startup, so the vault can attach Tokio threads to the JVM.
+ndk-context = "0.1"
+# Bridges `tracing` output to logcat; without it nothing is visible in
+# `adb logcat`, since Android discards stdout/stderr from native code. Writes
+# to the logd socket directly rather than linking liblog (which the NDK does
+# not ship as a static library), and plugs into the existing
+# `tracing_subscriber::fmt()` call as a MakeWriter.
+tracing-logcat = "0.1"
 
 [dev-dependencies]
 tempfile = "3"
