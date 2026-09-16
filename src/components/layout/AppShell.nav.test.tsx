@@ -151,6 +151,41 @@ describe("AppShell navigation", () => {
     expect(root.className).toContain("p-2");
   });
 
+  it("reaches the transfer queue on mobile, where the Sidebar is absent", async () => {
+    // Regression guard. TransferPopover is rendered only by Sidebar, and
+    // Sidebar is desktop-only, so the mobile shell must supply its own route
+    // to the queue or a running transfer can never be cancelled or retried.
+    const { useTransferStore } = await import("../../stores/transfer-store");
+    useTransferStore.setState({
+      transfers: new Map([
+        [
+          "t1",
+          {
+            transfer_id: "t1",
+            sftp_session_id: "s1",
+            name: "big.iso",
+            direction: "Download",
+            status: "InProgress",
+            error: null,
+            bytes_transferred: 1,
+            total_bytes: 2,
+            files_done: 0,
+            files_total: 1,
+            speed_bps: 1,
+            eta_secs: 1,
+            created_at: 0,
+          },
+        ],
+      ]) as never,
+    });
+
+    mockViewport(true);
+    render(<AppShell />);
+    expect(screen.getByTestId("mobile-transfer-bar")).toBeInTheDocument();
+
+    useTransferStore.setState({ transfers: new Map() });
+  });
+
   it("gives the content column min-h-0 so children can own the leftover space", () => {
     mockViewport(true);
     const { container } = render(<AppShell />);

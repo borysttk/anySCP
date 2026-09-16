@@ -14,6 +14,7 @@ import { Sidebar } from "../sidebar";
 import { TerminalArea } from "../terminal";
 import { UnifiedTabBar } from "./UnifiedTabBar";
 import { BottomNav } from "./BottomNav";
+import { MobileTransferBar } from "../transfers/MobileTransferBar";
 import { MobileSessionBar } from "./MobileSessionBar";
 import { useIsMobileViewport } from "../../hooks/use-media-query";
 
@@ -502,8 +503,17 @@ export function AppShell() {
         </div>
       </div>
 
-      {/* Bottom navigation — mobile only, after the content in DOM order so it
-          is the last thing reached by tab/screen-reader traversal. */}
+      {/*
+        Transfer indicator + bottom nav — mobile only, after the content in DOM
+        order so they are the last things reached by tab/screen-reader
+        traversal.
+
+        The transfer bar is mounted at the shell level, not inside
+        ExplorerView: transfers outlive the tab that started them, and
+        TransferPopover (its desktop equivalent) lives in the desktop-only
+        Sidebar, so without this the queue is unreachable on a phone.
+      */}
+      {isMobile && <MobileTransferBar />}
       {isMobile && <BottomNav />}
 
       {/* Host modal (new + edit) */}

@@ -1393,6 +1393,45 @@ export function ExplorerFileTable({
                       : "",
                   ].join(" ")}
                 >
+                  {/*
+                    Selection checkbox — touch viewports only.
+
+                    Multi-select is otherwise reachable only via Ctrl/Cmd- or
+                    Shift-click, which a touchscreen has no way to produce, so
+                    without this the existing bulk actions in the context menu
+                    (Download / Delete / Permissions for a selection) can never
+                    apply to more than one file on a phone.
+
+                    It stops propagation so ticking a box never also triggers
+                    the row's navigate/preview tap, and it is excluded from the
+                    drag handler by the same `closest("input")` guard that
+                    already protects the rename field.
+                  */}
+                  {isMobileViewport && (
+                    <span
+                      className="flex items-center justify-center w-11 h-11 -my-2 -ml-1 shrink-0"
+                      onClick={(e) => e.stopPropagation()}
+                      onPointerDown={(e) => e.stopPropagation()}
+                    >
+                      <input
+                        type="checkbox"
+                        data-testid={`explorer-select-${entry.name}`}
+                        checked={isSelected}
+                        aria-label={`Select ${entry.name}`}
+                        onChange={() => {
+                          setSelectedIds((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(entry.id)) next.delete(entry.id);
+                            else next.add(entry.id);
+                            return next;
+                          });
+                          lastClickedId.current = entry.id;
+                        }}
+                        className="w-4 h-4 accent-[var(--color-accent)]"
+                      />
+                    </span>
+                  )}
+
                   {/* Icon */}
                   <span className="w-5 flex items-center justify-center shrink-0">
                     <EntryIcon entry={entry} />

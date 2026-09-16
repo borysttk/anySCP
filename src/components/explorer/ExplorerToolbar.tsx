@@ -50,10 +50,18 @@ const PATH_INPUT_CLASS = [
   "bg-bg-subtle text-text-primary text-[length:var(--text-sm)]",
   "border border-ring outline-none",
 ].join(" ");
-const BREADCRUMB_BAR_CLASS =
-  "flex items-center gap-0 overflow-x-auto flex-1 min-w-0 mx-1 cursor-text rounded hover:bg-bg-subtle/40";
+const BREADCRUMB_BAR_CLASS = [
+  "flex items-center gap-0 overflow-x-auto flex-1 min-w-0 mx-1 cursor-text rounded hover:bg-bg-subtle/40",
+  // Deep paths (/var/www/app/storage/logs) overflow on a phone. Keep the
+  // segments on one line and hide the scrollbar — the bar auto-scrolls to the
+  // current directory instead (see the effect below), and a visible scrollbar
+  // would eat height in an already short 40px row.
+  "whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+].join(" ");
 const SEGMENT_BTN_BASE_CLASS = [
-  "px-1 py-0.5 rounded text-[length:var(--text-sm)]",
+  // px-2/py-1.5 on touch widens a segment well past the 1-2 character labels
+  // that are otherwise impossible to hit; desktop keeps the dense original.
+  "px-2 py-1.5 sm:px-1 sm:py-0.5 rounded text-[length:var(--text-sm)]",
   "transition-colors duration-[var(--duration-fast)]",
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
 ].join(" ");
@@ -104,6 +112,20 @@ export const ExplorerToolbar = memo(function ExplorerToolbar({
   const [isEditing, setIsEditing] = useState(false);
   const [draftPath, setDraftPath] = useState(currentPath);
   const inputRef = useRef<HTMLInputElement>(null);
+  const breadcrumbRef = useRef<HTMLDivElement>(null);
+
+  // Scroll the breadcrumb to its right edge whenever the path changes, so the
+  // current directory stays visible on a narrow screen instead of the path
+  // being pinned at the (uninformative) root end.
+  //
+  // Sets scrollLeft directly rather than calling scrollIntoView on the last
+  // segment: scrollIntoView walks up the ancestor chain and would also scroll
+  // the surrounding layout, and jsdom does not implement it at all.
+  useEffect(() => {
+    const el = breadcrumbRef.current;
+    if (!el || isEditing) return;
+    el.scrollLeft = el.scrollWidth;
+  }, [currentPath, isEditing]);
 
   // Focus + select only when editing begins — re-running on a currentPath
   // change mid-edit would stomp the user's cursor/selection
@@ -186,6 +208,8 @@ export const ExplorerToolbar = memo(function ExplorerToolbar({
         />
       ) : (
         <div
+          ref={breadcrumbRef}
+          data-testid="explorer-breadcrumb"
           onClick={beginEdit}
           // Keyboard path to edit mode: the bar itself is focusable and Enter
           // begins editing (segment buttons keep their own click behavior).
