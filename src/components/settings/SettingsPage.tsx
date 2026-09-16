@@ -5,7 +5,7 @@ import { useSettingsStore } from "../../stores/settings-store";
 import { CustomSelect, type SelectOption } from "../shared/CustomSelect";
 import { useUpdaterStore } from "../../stores/updater-store";
 import { toast } from "../../stores/toast-store";
-import { RefreshCw, CheckCircle2, AlertCircle, Palette, SquareTerminal, ArrowUpDown, Info, ExternalLink, Check, FileCode, Plus, Trash2, FolderOpen, Star, Search, Database, Download, Upload, ShieldCheck } from "lucide-react";
+import { RefreshCw, ChevronLeft, CheckCircle2, AlertCircle, Palette, SquareTerminal, ArrowUpDown, Info, ExternalLink, Check, FileCode, Plus, Trash2, FolderOpen, Star, Search, Database, Download, Upload, ShieldCheck } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { CursorStyle, ThemeMode, EditorConfig, PasteButton, DoubleClickAction } from "../../stores/settings-store";
 
@@ -77,16 +77,30 @@ let lastSettingsSection: SectionId = "appearance";
 
 export function SettingsPage() {
   const [active, setActive] = useState<SectionId>(() => lastSettingsSection);
-  const selectSection = (id: SectionId) => { lastSettingsSection = id; setActive(id); };
+  // Phones cannot show the sidebar and the panel at once, so they drill down:
+  // level 1 is the category list, level 2 the section detail. This is driven by
+  // CSS breakpoints rather than a JS viewport check so the desktop two-pane
+  // layout is never conditional — the e2e suite clicks `settings-nav-*` on a
+  // desktop-sized window and must keep finding those nodes.
+  const [detailOpen, setDetailOpen] = useState(false);
+  const selectSection = (id: SectionId) => {
+    lastSettingsSection = id;
+    setActive(id);
+    setDetailOpen(true);
+  };
   const activeSection = SECTIONS.find((s) => s.id === active);
 
   return (
-    <div className="flex flex-col h-full p-2">
-      <div className="flex flex-1 min-h-0 rounded-lg overflow-hidden border border-border/60">
-        {/* Sidebar */}
+    <div className="flex flex-col h-full p-0 sm:p-2">
+      <div className="flex flex-1 min-h-0 rounded-none sm:rounded-lg overflow-hidden border-0 sm:border border-border/60">
+        {/* Sidebar — full width on mobile (level 1), fixed rail from `sm` up. */}
         <nav
           aria-label="Settings sections"
-          className="w-60 shrink-0 flex flex-col gap-1 px-3 py-4 border-r border-border/50 bg-bg-surface/40 overflow-y-auto no-select"
+          className={[
+            "w-full sm:w-60 shrink-0 flex-col gap-1 px-3 py-4",
+            "border-r-0 sm:border-r border-border/50 bg-bg-surface/40 overflow-y-auto no-select",
+            detailOpen ? "hidden sm:flex" : "flex",
+          ].join(" ")}
         >
           <h2 className="px-3 pt-1 pb-2 text-[length:var(--text-2xs)] font-semibold uppercase tracking-wider text-text-muted">
             Settings
@@ -102,6 +116,7 @@ export function SettingsPage() {
                 onClick={() => selectSection(id)}
                 className={[
                   "flex items-center gap-2.5 px-3 py-2 rounded-lg text-left",
+                  "min-h-[44px] sm:min-h-0",
                   "text-[length:var(--text-sm)] font-medium",
                   "transition-colors duration-[var(--duration-fast)]",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -121,12 +136,24 @@ export function SettingsPage() {
           })}
         </nav>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-scroll bg-bg-base">
-          <div className="max-w-4xl mx-auto px-8 py-6">
+        {/* Content — level 2 on mobile, the right-hand pane on desktop. */}
+        <div className={[
+          "flex-1 overflow-y-scroll bg-bg-base",
+          detailOpen ? "block" : "hidden sm:block",
+        ].join(" ")}>
+          <div className="max-w-4xl mx-auto px-4 sm:px-8 py-4 sm:py-6">
             {/* Section header */}
             <div className="mb-6">
-              <h1 className="text-2xl font-semibold tracking-tight text-text-primary">
+              <button
+                type="button"
+                data-testid="settings-back"
+                onClick={() => setDetailOpen(false)}
+                className="sm:hidden flex items-center gap-1.5 -ml-1.5 mb-3 px-1.5 py-2 min-h-[44px] rounded-lg text-[length:var(--text-sm)] font-medium text-text-secondary hover:text-text-primary transition-colors duration-[var(--duration-fast)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <ChevronLeft size={16} strokeWidth={1.8} aria-hidden="true" />
+                Settings
+              </button>
+              <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-text-primary">
                 {activeSection?.label}
               </h1>
               <p className="text-[length:var(--text-sm)] text-text-muted mt-1.5">
