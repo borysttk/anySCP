@@ -35,6 +35,9 @@ import type {
 } from "../../types/explorer";
 import { ContextMenu } from "../shared/ContextMenu";
 import type { ContextMenuItem } from "../shared/ContextMenu";
+import { useLongPress } from "../../hooks/use-long-press";
+import type { LongPressHandlers } from "../../hooks/use-long-press";
+import { useIsMobileViewport } from "../../hooks/use-media-query";
 import { formatBytes } from "../../utils/format";
 import {
   useSettingsStore,
@@ -120,6 +123,37 @@ function formatModified(unix: number | null): string {
   if (unix === null) return "—";
   const date = new Date(unix * 1000);
   return `${MODIFIED_DATE_FMT.format(date)} ${MODIFIED_TIME_FMT.format(date)}`;
+}
+
+/**
+ * Adds the touch long-press gesture to a file row.
+ *
+ * A component rather than an inline hook call because rows are produced in a
+ * `.map()`, where hooks cannot be called. It renders no markup of its own —
+ * it hands the caller a set of handlers to spread onto the row element.
+ *
+ * The row already owns an `onPointerDown` for pointer-driven drag, so both are
+ * composed instead of one replacing the other: the drag handler decides whether
+ * a drag starts, while the long-press timer independently decides whether the
+ * menu opens. The long-press cancels itself as soon as the finger travels far
+ * enough to count as a drag or a scroll, so only one of them ever completes.
+ */
+function RowLongPress({
+  entry,
+  onLongPress,
+  children,
+}: {
+  entry: ExplorerEntry;
+  onLongPress: (entry: ExplorerEntry, position: { x: number; y: number }) => void;
+  children: (handlers: LongPressHandlers) => React.ReactNode;
+}) {
+  const handlers = useLongPress(
+    useCallback(
+      (position: { x: number; y: number }) => onLongPress(entry, position),
+      [entry, onLongPress],
+    ),
+  );
+  return <>{children(handlers)}</>;
 }
 
 function EntryIcon({ entry }: { entry: ExplorerEntry }) {
@@ -377,6 +411,7 @@ export function ExplorerFileTable({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const lastClickedId = useRef<string | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
+  const isMobileViewport = useIsMobileViewport();
 
   // Drag-and-drop state (internal move). The OS-level Tauri drag-drop handler is
   // enabled (for file-drop uploads), which suppresses HTML5 drag events in the
@@ -746,6 +781,23 @@ export function ExplorerFileTable({
     setContextMenu({ entry, x: e.clientX, y: e.clientY });
   };
 
+  /**
+   * Touch equivalent of right-click: hold a row to open the same menu.
+   *
+   * Selection is synced first so the menu acts on what the user is touching,
+   * mirroring what `onContextMenu` does above. Without this, long-pressing an
+   * unselected row would show actions for a different file.
+   */
+  const openMenuForEntry = useCallback(
+    (entry: ExplorerEntry, position: { x: number; y: number }) => {
+      setSelectedIds((prev) =>
+        prev.has(entry.id) ? prev : new Set([entry.id]),
+      );
+      setContextMenu({ entry, x: position.x, y: position.y });
+    },
+    [],
+  );
+
   const handleDeleteEntries = async (entriesToDelete: ExplorerEntry[]) => {
     try {
       await onDelete(entriesToDelete);
@@ -1074,7 +1126,10 @@ export function ExplorerFileTable({
 
         <button
           data-testid="explorer-sort-modified"
-          className={`w-44 text-center ${thClass("modified")}`}
+          // Secondary columns are dropped on phone-width screens: at ~390px
+          // Name+Size+Modified+Permissions leaves the filename a few characters
+          // wide, and the filename is the only column that is always needed.
+          className={`hidden sm:block w-44 text-center ${thClass("modified")}`}
           onClick={() => handleSortClick("modified")}
           aria-sort={
             sortBy === "modified"
@@ -1089,7 +1144,7 @@ export function ExplorerFileTable({
         </button>
 
         {/* Last column: Permissions for SFTP, Class for S3 */}
-        <span className="w-24 text-[length:var(--text-xs)] font-semibold uppercase tracking-wide text-text-muted select-none">
+        <span className="hidden sm:block w-24 text-[length:var(--text-xs)] font-semibold uppercase tracking-wide text-text-muted select-none">
           {caps.hasPermissions
             ? "Permissions"
             : caps.hasStorageClass
@@ -1168,7 +1223,11 @@ export function ExplorerFileTable({
               )}
             </div>
             <p className="text-[length:var(--text-2xs)] text-text-muted/60">
-              Right-click for more options
+              {/* Telling a touch user to right-click is telling them to do
+                  something their device cannot do. */}
+              {isMobileViewport
+                ? "Touch and hold for more options"
+                : "Right-click for more options"}
             </p>
           </div>
         ) : (
@@ -1184,8 +1243,13 @@ export function ExplorerFileTable({
             {sortedEntries.map((entry) => {
               const isSelected = selectedIds.has(entry.id);
               return (
-                <div
+                <RowLongPress
                   key={entry.id}
+                  entry={entry}
+                  onLongPress={openMenuForEntry}
+                >
+                  {(lp) => (
+                <div
                   role="listitem"
                   data-entry-row="true"
                   data-entry-name={entry.name}
@@ -1193,6 +1257,9 @@ export function ExplorerFileTable({
                   data-testid={`explorer-entry-${entry.name}`}
                   tabIndex={0}
                   onClick={(e) => handleRowClick(entry, e)}
+                  // A double-tap is not a touch idiom and fires unreliably; on
+                  // mobile a single tap opens folders / previews files instead
+                  // (see onClick → handleRowClick), so this stays pointer-only.
                   onDoubleClick={() => handleDoubleClick(entry)}
                   onContextMenu={(e) => {
                     if (!selectedIds.has(entry.id))
@@ -1294,13 +1361,26 @@ export function ExplorerFileTable({
                   // Pointer-driven drag (HTML5 DnD is suppressed by the OS
                   // drag-drop handler). Drop on a folder = move (Alt = copy);
                   // drag out of the window = download. See handleRowPointerDown.
-                  onPointerDown={
-                    caps.canInternalDragMove || onDragOut
-                      ? (e) => handleRowPointerDown(e, entry)
-                      : undefined
-                  }
+                  // Both gestures observe the same pointer stream: the drag
+                  // handler decides whether a drag starts, the long-press timer
+                  // whether the menu opens. Whichever condition is met first
+                  // cancels the other (moving past the tolerance kills the
+                  // press; the press suppresses the trailing tap).
+                  onPointerDown={(e) => {
+                    if (caps.canInternalDragMove || onDragOut) {
+                      handleRowPointerDown(e, entry);
+                    }
+                    lp.onPointerDown(e);
+                  }}
+                  onPointerMove={lp.onPointerMove}
+                  onPointerUp={lp.onPointerUp}
+                  onPointerCancel={lp.onPointerCancel}
                   className={[
+                    // py-2 gives a ~32px row — fine for a mouse, under the
+                    // 44px touch minimum. The taller row applies only below
+                    // `sm`, so desktop density is unchanged.
                     "flex items-center gap-2 px-3 py-2 cursor-default",
+                    "min-h-[44px] sm:min-h-0",
                     "transition-colors duration-[var(--duration-fast)]",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
                     "group",
@@ -1343,7 +1423,7 @@ export function ExplorerFileTable({
                       12px because mono reads visually larger than the 14px sans.
                       Truncate + title as a safety net for wide locales (#109). */}
                   <span
-                    className="w-44 text-center text-[length:var(--text-xs)] text-text-muted shrink-0 font-mono tracking-tight truncate"
+                    className="hidden sm:block w-44 text-center text-[length:var(--text-xs)] text-text-muted shrink-0 font-mono tracking-tight truncate"
                     title={formatModified(entry.modified)}
                   >
                     {formatModified(entry.modified)}
@@ -1356,7 +1436,10 @@ export function ExplorerFileTable({
                         ? (entry.permissionsDisplay ?? "")
                         : undefined
                     }
-                    className="w-24 font-mono text-[length:var(--text-xs)] text-text-muted shrink-0 tracking-tight whitespace-nowrap"
+                    // `hidden` (not removed) keeps data-entry-perms in the DOM
+                    // for the e2e chmod assertions, which read the attribute
+                    // rather than the rendered text.
+                    className="hidden sm:block w-24 font-mono text-[length:var(--text-xs)] text-text-muted shrink-0 tracking-tight whitespace-nowrap"
                   >
                     {caps.hasPermissions
                       ? (entry.permissionsDisplay ?? "")
@@ -1365,6 +1448,8 @@ export function ExplorerFileTable({
                         : ""}
                   </span>
                 </div>
+                  )}
+                </RowLongPress>
               );
             })}
           </div>
