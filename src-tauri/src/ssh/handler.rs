@@ -3,19 +3,31 @@ use russh::client;
 use russh_keys::key::PublicKey;
 
 /// Handles server events for a single SSH connection.
-pub struct SshClientHandler;
+pub struct SshClientHandler {
+    host: String,
+    port: u16,
+}
+
+impl SshClientHandler {
+    pub fn new(host: String, port: u16) -> Self {
+        Self { host, port }
+    }
+}
 
 #[async_trait]
 impl client::Handler for SshClientHandler {
     type Error = russh::Error;
 
     /// Called when the server presents its host key.
-    /// Phase 1: accept all. Phase 2: known_hosts verification.
+    /// Verifies against the user's known_hosts file.
     async fn check_server_key(
         &mut self,
-        _server_public_key: &PublicKey,
+        server_public_key: &PublicKey,
     ) -> Result<bool, Self::Error> {
-        // TODO(Phase 2): verify against known_hosts file
-        Ok(true)
+        russh_keys::known_hosts::check_known_hosts(
+            &self.host,
+            self.port,
+            server_public_key,
+        )
     }
 }

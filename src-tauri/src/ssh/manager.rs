@@ -286,7 +286,7 @@ impl SshManager {
             let Some(jump) = config.jump_host.as_deref() else {
                 // Direct connection — no tunnel.
                 let addr = format!("{}:{}", config.host, config.port);
-                let mut handle = client::connect(russh_config, &addr, SshClientHandler)
+                let mut handle = client::connect(russh_config, &addr, SshClientHandler::new(config.host.clone(), config.port))
                     .await
                     .map_err(|e| SshError::ConnectionFailed(e.to_string()))?;
                 Self::authenticate_handle(&mut handle, config).await?;
@@ -326,7 +326,7 @@ impl SshManager {
 
             // 3. Run the target SSH session over the tunnelled channel.
             let mut handle =
-                client::connect_stream(russh_config, channel.into_stream(), SshClientHandler)
+                client::connect_stream(russh_config, channel.into_stream(), SshClientHandler::new(config.host.clone(), config.port))
                     .await
                     .map_err(|e| SshError::ConnectionFailed(e.to_string()))?;
             Self::authenticate_handle(&mut handle, config).await?;
