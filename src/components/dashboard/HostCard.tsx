@@ -4,6 +4,7 @@ import type { SavedHost } from "../../types";
 import { CardActionButton, CardActionStrip } from "./CardActionButton";
 import { relativeTime } from "../../utils/time";
 import { ContextMenu } from "../shared/ContextMenu";
+import { useLongPress } from "../../hooks/use-long-press";
 import { ConfirmDangerDialog } from "../shared/ConfirmDangerDialog";
 import { useHealthStore, IDLE_HEALTH, type HealthStatus } from "../../stores/health-store";
 import { useHostsStore } from "../../stores/hosts-store";
@@ -112,6 +113,11 @@ export function HostCard({ host, onConnect, onExplore, onEdit, onDelete, onDupli
     setContextMenu({ x: e.clientX, y: e.clientY });
   };
 
+  // Touch equivalent of right-click. The card body is free for this
+  // because SortableCard moves the drag gesture onto an explicit handle
+  // on mobile — see the comment there.
+  const longPress = useLongPress(setContextMenu);
+
   const contextItems = [
     {
       label: "Ping",
@@ -175,6 +181,7 @@ export function HostCard({ host, onConnect, onExplore, onEdit, onDelete, onDupli
         onClick={() => onConnect(host)}
         onKeyDown={handleKeyDown}
         onContextMenu={handleContextMenu}
+        {...longPress}
         title={`Connect to ${displayName}`}
         className={[
           // grab/grabbing communicates the card is draggable; the click-to-connect
@@ -240,7 +247,7 @@ export function HostCard({ host, onConnect, onExplore, onEdit, onDelete, onDupli
 
         {/* Host info */}
         <div className="min-w-0">
-          <p className="text-[length:var(--text-sm)] font-medium text-text-primary truncate leading-tight pr-24">
+          <p className="text-[length:var(--text-sm)] font-medium text-text-primary truncate leading-tight pr-36 sm:pr-24">
             {displayName}
           </p>
           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">

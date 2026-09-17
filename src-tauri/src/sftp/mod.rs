@@ -94,6 +94,20 @@ pub struct ChmodSummary {
     pub errors: Vec<String>,
 }
 
+/// Handle for a two-step Android export: download into `staging_path`, then
+/// hand the bytes to the `content://` destination the user picked.
+///
+/// See `sftp_saf_begin_export` for why the download cannot target the final
+/// location directly.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SafExport {
+    /// App-private path to download into.
+    pub staging_path: String,
+    /// Opaque SAF destination URI. Passed back verbatim on finish.
+    pub uri: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TransferProgress {
     pub transfer_id: String,

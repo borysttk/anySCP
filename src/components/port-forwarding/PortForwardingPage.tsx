@@ -8,10 +8,12 @@ import { ConfirmDangerDialog } from "../shared/ConfirmDangerDialog";
 import { ModalShell, BTN_GHOST, BTN_PRIMARY } from "../shared/ModalShell";
 import type { ContextMenuItem } from "../shared/ContextMenu";
 import type { PortForwardRule, SavedHost } from "../../types";
+import { useTranslation } from "react-i18next";
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function PortForwardingPage() {
+  const { t } = useTranslation();
   const rules = usePortForwardStore((s) => s.rules);
   const activeTunnels = usePortForwardStore((s) => s.activeTunnels);
   const loadRules = usePortForwardStore((s) => s.loadRules);
@@ -117,7 +119,7 @@ export function PortForwardingPage() {
 
           {/* ── Page title ── */}
           <div>
-            <h1 className="text-[length:var(--text-lg)] font-semibold text-text-primary">Tunnels</h1>
+            <h1 className="text-[length:var(--text-lg)] font-semibold text-text-primary">{t('components_port_forwarding_PortForwardingPage_tunnels')}</h1>
             <p className="text-[length:var(--text-xs)] text-text-muted mt-1">Forward local ports to remote services through SSH tunnels for secure database, API, and service access</p>
           </div>
 
@@ -406,6 +408,7 @@ function RuleDialog({
   onSubmit: (rule: Omit<PortForwardRule, "id" | "enabled" | "created_at">) => void;
   onCancel: () => void;
 }) {
+  const { t } = useTranslation();
   const isEdit = !!rule;
   const [hostId, setHostId] = useState(rule?.host_id ?? hosts[0]?.id ?? "");
   const [label, setLabel] = useState(rule?.label ?? "");
@@ -459,7 +462,7 @@ function RuleDialog({
       testId="rule-dialog"
       footer={
         <>
-          <button type="button" onClick={onCancel} className={BTN_GHOST}>Cancel</button>
+          <button type="button" onClick={onCancel} className={BTN_GHOST}>{t('components_dashboard_ImportSshConfigModal_cancel')}</button>
           <button form="rule-dialog-form" type="submit" data-testid="rule-dialog-save" disabled={!canSubmit} className={BTN_PRIMARY}>
             {isEdit ? "Save" : "Create"}
           </button>
@@ -467,11 +470,11 @@ function RuleDialog({
       }
     >
         <form id="rule-dialog-form" onSubmit={handleSubmit} className="flex flex-col gap-3.5">
-          <SectionHeader>Connection</SectionHeader>
+          <SectionHeader>{t('components_dashboard_HostEditModal_connection')}</SectionHeader>
 
           {/* Host */}
           <div>
-            <label htmlFor="pf-host" className={labelClass}>Host</label>
+            <label htmlFor="pf-host" className={labelClass}>{t('components_port_forwarding_PortForwardingPage_host')}</label>
             {hosts.length > 0 ? (
               <CustomSelect
                 id="pf-host"
@@ -523,7 +526,7 @@ function RuleDialog({
             />
           </div>
 
-          <SectionHeader>Ports</SectionHeader>
+          <SectionHeader>{t('components_port_forwarding_PortForwardingPage_ports')}</SectionHeader>
 
           {/* Preset buttons */}
           {!isEdit && (
@@ -550,7 +553,7 @@ function RuleDialog({
           {/* Port inputs */}
           <div className="flex gap-3 items-end">
             <div className="flex-1">
-              <label htmlFor="pf-local-port" className={labelClass}>Local Port</label>
+              <label htmlFor="pf-local-port" className={labelClass}>{t('components_port_forwarding_PortForwardingPage_local_port')}</label>
               <input
                 id="pf-local-port"
                 data-testid="rule-local-port"
@@ -567,7 +570,7 @@ function RuleDialog({
             <ArrowRight size={15} strokeWidth={2} className="text-text-muted/40 mb-3 shrink-0" />
 
             <div className="flex-1">
-              <label htmlFor="pf-remote-port" className={labelClass}>Remote Port</label>
+              <label htmlFor="pf-remote-port" className={labelClass}>{t('components_port_forwarding_PortForwardingPage_remote_port')}</label>
               <input
                 id="pf-remote-port"
                 data-testid="rule-remote-port"
@@ -582,11 +585,11 @@ function RuleDialog({
             </div>
           </div>
 
-          <SectionHeader>Options</SectionHeader>
+          <SectionHeader>{t('components_port_forwarding_PortForwardingPage_options')}</SectionHeader>
 
           {/* Bind address */}
           <div>
-            <label htmlFor="pf-bind" className={labelClass}>Bind Address</label>
+            <label htmlFor="pf-bind" className={labelClass}>{t('components_port_forwarding_PortForwardingPage_bind_address')}</label>
             <CustomSelect
               id="pf-bind"
               value={bindAddress}
@@ -601,8 +604,8 @@ function RuleDialog({
           {/* Auto-start */}
           <div className="flex items-center justify-between gap-3">
             <div>
-              <span className={labelClass}>Auto-start</span>
-              <p className="text-[length:var(--text-2xs)] text-text-muted">Start tunnel when host connects</p>
+              <span className={labelClass}>{t('components_port_forwarding_PortForwardingPage_auto_start')}</span>
+              <p className="text-[length:var(--text-2xs)] text-text-muted">{t('components_port_forwarding_PortForwardingPage_start_tunnel_when_host_connects')}</p>
             </div>
             <button
               type="button"

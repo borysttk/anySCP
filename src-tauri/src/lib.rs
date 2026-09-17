@@ -13,6 +13,7 @@ pub mod telemetry;
 pub mod transfer_common;
 mod types;
 mod vault;
+mod platform;
 
 use db::HostDb;
 use portforward::manager::PortForwardManager;
@@ -131,12 +132,18 @@ pub fn run() {
             );
 
             WebviewWindowBuilder::new(app.handle(), "main", WebviewUrl::App("index.html".into()))
-                .title("anySCP")
-                .inner_size(1200.0, 800.0)
-                .min_inner_size(800.0, 500.0)
                 .initialization_script(&theme_script)
                 .build()
                 .map_err(|e| format!("failed to create main window: {e}"))?;
+
+            #[cfg(not(target_os = "android"))]
+            {
+                let window = WebviewWindowBuilder::new(app.handle(), "main", WebviewUrl::App("index.html".into()))
+                    .inner_size(1200.0, 800.0)
+                    .min_inner_size(800.0, 500.0)
+                    .initialization_script(&theme_script);
+                let _ = window.build();
+            }
 
             app.manage(Arc::new(host_db));
 
@@ -193,6 +200,7 @@ pub fn run() {
             sftp::commands::sftp_copy_entries,
             // SFTP — legacy direct transfers (kept for VS Code edit workflow)
             sftp::commands::sftp_download,
+            #[cfg(not(target_os = "android"))]
             sftp::commands::sftp_drag_out,
             sftp::commands::sftp_upload,
             sftp::commands::sftp_cancel_transfer,

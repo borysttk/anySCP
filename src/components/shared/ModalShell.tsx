@@ -129,7 +129,12 @@ export function ModalShell({
       onClose={onClose}
       closeDisabled={busy}
       className={[
-        "fixed inset-0 z-50 flex items-start justify-center pt-[8vh]",
+        "fixed inset-0 z-50 flex justify-center",
+        // A floating panel inset from the top wastes scarce vertical space on a
+        // phone and puts the footer buttons behind the soft keyboard. Below
+        // `sm` the dialog fills the screen instead; the 8vh offset returns at
+        // `sm` and above.
+        "items-stretch sm:items-start sm:pt-[8vh]",
         "transition-[background-color,backdrop-filter] duration-[var(--duration-base)]",
         visible ? "bg-black/50 backdrop-blur-sm" : "bg-black/0 backdrop-blur-none",
       ].join(" ")}
@@ -141,8 +146,16 @@ export function ModalShell({
         role="dialog"
         aria-labelledby={titleId}
         className={[
-          `w-full ${MAX_W[maxWidth]} rounded-xl bg-bg-overlay border border-border shadow-[var(--shadow-lg)] flex flex-col`,
-          scrollable ? "max-h-[84vh]" : "",
+          "w-full bg-bg-overlay border-border shadow-[var(--shadow-lg)] flex flex-col",
+          // Fullscreen on phones: no rounding, no border, no width cap, and the
+          // panel owns the full height so the header and footer can stay put
+          // while only the body scrolls.
+          "h-full rounded-none border-0",
+          `sm:h-auto sm:rounded-xl sm:border ${MAX_W[maxWidth]}`,
+          // max-h only applies once the dialog is floating again; on mobile
+          // h-full already bounds it, and combining the two would let the
+          // footer drift off-screen.
+          scrollable ? "sm:max-h-[84vh]" : "",
           "transition-[opacity,transform] duration-[var(--duration-slow)] ease-[var(--ease-expo-out)]",
           visible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-3",
         ].join(" ")}
@@ -177,9 +190,14 @@ export function ModalShell({
         </div>
 
         {/* ── Body ── */}
+        {/*
+          On mobile the body always scrolls, regardless of `scrollable`: the
+          panel is height-bounded by the screen, so a long form would otherwise
+          push the footer out of reach. Desktop keeps the opt-in behaviour.
+        */}
         <div className={[
-          "px-6 py-4",
-          scrollable ? "overflow-y-auto flex-1 min-h-0" : "",
+          "px-6 py-4 overflow-y-auto overscroll-contain flex-1 min-h-0",
+          scrollable ? "sm:overflow-y-auto sm:flex-1 sm:min-h-0" : "sm:overflow-visible sm:flex-none",
         ].join(" ")}>
           {children}
         </div>
@@ -187,11 +205,15 @@ export function ModalShell({
         {/* ── Footer ── */}
         {hasFooter && (
           <div className={[
-            "px-6 py-3 flex items-center gap-2 border-t border-border shrink-0",
+            "px-6 py-3 flex flex-wrap items-center gap-2 border-t border-border shrink-0",
+            // Clear Android's gesture bar; resolves to 0 elsewhere.
+            "pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-3",
             footerStart ? "justify-between" : "justify-end",
           ].join(" ")}>
-            {footerStart && <div>{footerStart}</div>}
-            <div className="flex items-center gap-2">{footer}</div>
+            {footerStart && <div className="shrink-0">{footerStart}</div>}
+            {/* wrap: HostEditModal puts four buttons here, which overflows a
+                360px-wide phone on one line. */}
+            <div className="flex flex-wrap items-center justify-end gap-2">{footer}</div>
           </div>
         )}
       </div>

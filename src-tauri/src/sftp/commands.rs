@@ -13,8 +13,8 @@ use crate::ssh::manager::SshManager;
 
 use super::transfer_manager::TransferManager;
 use super::{
-    format_permissions, validate_remote_name, ChmodSummary, SftpEntry, SftpEntryType, SftpError,
-    SftpManager, SftpSessionWrapper, TransferDirection, TransferInfo, TransferProgress,
+    format_permissions, validate_remote_name, ChmodSummary, SafExport, SftpEntry, SftpEntryType,
+    SftpError, SftpManager, SftpSessionWrapper, TransferDirection, TransferInfo, TransferProgress,
     TransferStatus,
 };
 
@@ -648,6 +648,83 @@ pub async fn sftp_chmod_recursive(
     Ok(ChmodSummary { applied, errors })
 }
 
+// ─── Mobile export (Storage Access Framework) ────────────────────────────────
+
+/// Pick a save location and return the staging path to download into.
+///
+/// Android's Scoped Storage means a downloaded file cannot simply be written to
+/// `/sdcard/Download`. The flow is therefore two-step:
+///
+/// 1. this command asks the system picker for a destination and returns a
+///    private staging path plus the opaque `content://` URI;
+/// 2. the caller downloads into the staging path, then calls
+///    [`sftp_saf_finish_export`] to move the bytes into the chosen location.
+///
+/// Staging first means a failed transfer leaves nothing behind in the user's
+/// Downloads folder — the visible result is all-or-nothing.
+///
+/// Desktop has no SAF; callers there use the dialog plugin's `save()` and pass
+/// the real path straight to `sftp_download`.
+#[cfg(target_os = "android")]
+#[tauri::command]
+pub async fn sftp_saf_begin_export(file_name: String) -> Result<SafExport, SftpError> {
+    let mime = crate::platform::saf::mime_for(&file_name);
+    let uri = crate::platform::saf::create_document(&file_name, mime)
+        .await
+        .map_err(|e| SftpError::LocalIoError(e.to_string()))?;
+
+    // Unique staging directory so two concurrent exports of the same file name
+    // cannot overwrite one another.
+    let stage_dir = crate::platform::temp_root().join(format!("saf-{}", uuid::Uuid::new_v4()));
+    tokio::fs::create_dir_all(&stage_dir)
+        .await
+        .map_err(|e| SftpError::LocalIoError(format!("could not create staging dir: {e}")))?;
+
+    Ok(SafExport {
+        staging_path: stage_dir.join(&file_name).to_string_lossy().to_string(),
+        uri,
+    })
+}
+
+#[cfg(not(target_os = "android"))]
+#[tauri::command]
+pub async fn sftp_saf_begin_export(file_name: String) -> Result<SafExport, SftpError> {
+    let _ = file_name;
+    Err(SftpError::LocalIoError(crate::platform::unsupported(
+        "Storage Access Framework",
+    )))
+}
+
+/// Copy a staged download into the previously-picked SAF destination.
+///
+/// Also removes the staging directory, so a cancelled or failed export does not
+/// accumulate cache files.
+#[cfg(target_os = "android")]
+#[tauri::command]
+pub async fn sftp_saf_finish_export(staging_path: String, uri: String) -> Result<u64, SftpError> {
+    let staged = PathBuf::from(&staging_path);
+    let written = tokio::task::spawn_blocking(move || {
+        crate::platform::saf::copy_to_uri(&PathBuf::from(&staging_path), &uri)
+    })
+    .await
+    .map_err(|e| SftpError::LocalIoError(format!("task panicked: {e}")))?
+    .map_err(|e| SftpError::LocalIoError(e.to_string()))?;
+
+    if let Some(dir) = staged.parent() {
+        let _ = tokio::fs::remove_dir_all(dir).await;
+    }
+    Ok(written)
+}
+
+#[cfg(not(target_os = "android"))]
+#[tauri::command]
+pub async fn sftp_saf_finish_export(staging_path: String, uri: String) -> Result<u64, SftpError> {
+    let _ = (staging_path, uri);
+    Err(SftpError::LocalIoError(crate::platform::unsupported(
+        "Storage Access Framework",
+    )))
+}
+
 // ─── Transfers ───────────────────────────────────────────────────────────────
 
 /// Download a remote file to a local path.
@@ -1015,6 +1092,7 @@ async fn stage_entries(
 /// signal we await, so if a platform fails to fire it the command stays pending
 /// for that drag; the frontend's re-entrancy guard still recovers on the next
 /// attempt and staged files are reaped by `sweep_stale_dragout`.
+#[cfg(not(target_os = "android"))]
 async fn start_native_drag(
     app: AppHandle,
     window: Window,
@@ -1034,20 +1112,23 @@ async fn start_native_drag(
 
             match raw_window {
                 Ok(w) => {
-                    let started = drag::start_drag(
-                        &w,
-                        drag::DragItem::Files(files),
-                        drag::Image::Raw(icon_bytes),
-                        move |result, _cursor| {
-                            let _ = tx_cb.send(Ok(matches!(result, drag::DragResult::Dropped)));
-                        },
-                        drag::Options::default(),
-                    );
-                    if let Err(e) = started {
-                        let _ = tx.send(Err(SftpError::LocalIoError(format!(
-                            "could not start drag: {e}"
-                        ))));
-                    }
+                    #[cfg(not(target_os = "android"))]
+                    {
+                        let started = drag::start_drag(
+                            &w,
+                            drag::DragItem::Files(files),
+                            drag::Image::Raw(icon_bytes),
+                            move |result, _cursor| {
+                                let _ = tx_cb.send(Ok(matches!(result, drag::DragResult::Dropped)));
+                            },
+                            drag::Options::default(),
+                        );
+                        if let Err(e) = started {
+                            let _ = tx.send(Err(SftpError::LocalIoError(format!(
+                                "could not start drag: {e}"
+                            ))));
+                        }
+                    } // close cfg block
                 }
                 Err(e) => {
                     let _ = tx.send(Err(SftpError::LocalIoError(format!(
@@ -1079,6 +1160,7 @@ async fn start_native_drag(
 /// copied out); on a drop we leave it for the OS to finish copying and reap it
 /// on a later drag via `sweep_stale_dragout` (the OS gives no copy-complete
 /// signal). Failures remove the partial tree before returning.
+#[cfg(not(target_os = "android"))]
 #[tauri::command]
 #[instrument(skip(app, window, sftp_manager), fields(sftp_session_id = %sftp_session_id))]
 pub async fn sftp_drag_out(
@@ -1093,7 +1175,7 @@ pub async fn sftp_drag_out(
         session_ref.sftp.clone()
     };
 
-    let dragout_root = std::env::temp_dir().join("anyscp-dragout");
+    let dragout_root = crate::platform::temp_root().join("anyscp-dragout");
     sweep_stale_dragout(&dragout_root).await;
 
     let stage = dragout_root.join(uuid::Uuid::new_v4().to_string());
@@ -1132,6 +1214,22 @@ pub async fn sftp_drag_out(
     }
 
     Ok(DragOutResult { dropped, count })
+}
+
+/// Android has no desktop to drag files onto, and the `drag` crate (GTK /
+/// AppKit / Win32) is not compiled for this target. The command stays
+/// registered so the webview receives a descriptive error rather than an
+/// opaque "command not found"; the mobile Explorer uses an explicit
+/// download action instead.
+#[cfg(target_os = "android")]
+#[tauri::command]
+pub async fn sftp_drag_out(
+    _sftp_session_id: String,
+    _remote_paths: Vec<String>,
+) -> Result<DragOutResult, SftpError> {
+    Err(SftpError::LocalIoError(crate::platform::unsupported(
+        "Dragging files out to the desktop",
+    )))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1397,6 +1495,7 @@ pub async fn sftp_cancel_transfer(
 /// Download a remote file to a temp directory, open it in an external editor,
 /// watch for saves, and re-upload each time the file is saved. `editor` is the
 /// editor to use; when `None`, an installed one is auto-detected.
+#[cfg(not(target_os = "android"))]
 #[tauri::command]
 #[instrument(skip(sftp_manager, app_handle, editor), fields(sftp_session_id = %sftp_session_id, remote_path = %remote_path))]
 pub async fn sftp_edit_external(
@@ -1919,6 +2018,22 @@ pub async fn sftp_set_concurrency(
     }
     transfer_manager.set_max_concurrent(max_concurrent);
     Ok(())
+}
+
+/// Android cannot launch an external editor: apps may not spawn arbitrary
+/// executables, and there is no shared filesystem another app could write
+/// back into. Registered so the webview gets a descriptive error rather than
+/// an opaque "command not found".
+#[cfg(target_os = "android")]
+#[tauri::command]
+pub async fn sftp_edit_external(
+    _sftp_session_id: String,
+    _remote_path: String,
+    _editor: Option<crate::editors::EditorConfig>,
+) -> Result<(), SftpError> {
+    Err(SftpError::LocalIoError(crate::platform::unsupported(
+        "Editing in an external editor",
+    )))
 }
 
 #[cfg(test)]

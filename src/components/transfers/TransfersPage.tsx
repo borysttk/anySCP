@@ -1,7 +1,9 @@
 import { useTransfers } from "../../hooks/use-transfers";
 import { TransferList } from "./TransferList";
+import { useTranslation } from "react-i18next";
 
 export function TransfersPage() {
+  const { t } = useTranslation();
   const { list, activeCount, queuedCount, finishedCount, onCancel, onRetry, onDismiss, onClearFinished } =
     useTransfers();
 
@@ -16,7 +18,7 @@ export function TransfersPage() {
         {/* Page title */}
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-[length:var(--text-lg)] font-semibold text-text-primary">Transfers</h1>
+            <h1 className="text-[length:var(--text-lg)] font-semibold text-text-primary">{t('components_transfers_TransfersPage_transfers')}</h1>
             <p className="text-[length:var(--text-xs)] text-text-muted mt-1">
               Active, queued, and completed file transfers across all sessions
             </p>

@@ -8,6 +8,7 @@ import { createS3Provider, toS3ExplorerEntry } from "../../providers/s3-provider
 import { editorLaunchErrorMessage } from "../../lib/editor-errors";
 import { toast } from "../../stores/toast-store";
 import type { EditorConfig } from "../../stores/settings-store";
+import { useTranslation } from "react-i18next";
 
 interface S3BrowserProps {
   sessionId: string;
@@ -18,6 +19,7 @@ interface S3BrowserProps {
 }
 
 export function S3Browser({ sessionId, isActive = true }: S3BrowserProps) {
+  const { t } = useTranslation();
   const session = useS3Store((s) => s.sessions.get(sessionId));
   const setEntries = useS3Store((s) => s.setEntries);
   const setBuckets = useS3Store((s) => s.setBuckets);
@@ -388,7 +390,7 @@ export function S3Browser({ sessionId, isActive = true }: S3BrowserProps) {
     return (
       <div className="flex flex-col h-full overflow-hidden">
         <div className="flex items-center h-10 px-3 border-b border-border bg-bg-surface shrink-0 gap-2 no-select">
-          <span className="text-[length:var(--text-sm)] font-medium text-text-primary">Buckets</span>
+          <span className="text-[length:var(--text-sm)] font-medium text-text-primary">{t('components_s3_S3Browser_buckets')}</span>
           <span className="flex-1" />
           <button
             onClick={() => void loadBuckets()}

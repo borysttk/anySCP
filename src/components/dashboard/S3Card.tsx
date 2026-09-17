@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Cloud, Pencil, Copy, Trash2, FolderOpen } from "lucide-react";
 import type { S3Connection } from "../../types";
 import { ContextMenu } from "../shared/ContextMenu";
+import { useLongPress } from "../../hooks/use-long-press";
 import { ConfirmDangerDialog } from "../shared/ConfirmDangerDialog";
 import { getHostColor } from "./HostCard";
 import { CardActionButton, CardActionStrip } from "./CardActionButton";
@@ -64,6 +65,11 @@ export function S3Card({ conn, onConnect, onEdit, onDuplicate, onDelete }: S3Car
     }
   };
 
+  // Touch equivalent of right-click. The card body is free for this
+  // because SortableCard moves the drag gesture onto an explicit handle
+  // on mobile — see the comment there.
+  const longPress = useLongPress(setContextMenu);
+
   const contextItems = [
     { label: "Explore", icon: FolderOpen, onClick: () => onConnect(conn) },
     { label: "Edit", icon: Pencil, onClick: () => onEdit(conn) },
@@ -82,6 +88,7 @@ export function S3Card({ conn, onConnect, onEdit, onDuplicate, onDelete }: S3Car
         onClick={() => onConnect(conn)}
         onKeyDown={handleKeyDown}
         onContextMenu={handleContextMenu}
+        {...longPress}
         title={`Connect to ${displayName}`}
         className={[
           // grab/grabbing communicates the card is draggable; a plain click still
@@ -128,7 +135,7 @@ export function S3Card({ conn, onConnect, onEdit, onDuplicate, onDelete }: S3Car
 
         {/* Connection info */}
         <div className="min-w-0">
-          <p className="text-[length:var(--text-sm)] font-medium text-text-primary truncate leading-tight pr-5">
+          <p className="text-[length:var(--text-sm)] font-medium text-text-primary truncate leading-tight pr-12 sm:pr-5">
             {displayName}
           </p>
           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">

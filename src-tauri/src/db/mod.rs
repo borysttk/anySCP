@@ -1980,16 +1980,15 @@ fn table_columns(conn: &Connection, table: &str) -> Result<Vec<String>, DbError>
 
 /// Create an owner-only (0700 on Unix) temp directory for a short-lived,
 /// *plaintext* SQLite snapshot. The caller removes it when done.
+///
+/// Routed through [`crate::platform::private_scratch_dir`] rather than
+/// `std::env::temp_dir()` directly: on Android the latter resolves to `/tmp`,
+/// which does not exist in the app sandbox, so backup export and restore would
+/// both fail. The platform helper uses the app cache dir there and falls back
+/// to the system temp dir on desktop and in unit tests.
 fn private_temp_dir(prefix: &str) -> Result<std::path::PathBuf, DbError> {
-    let dir = std::env::temp_dir().join(format!("{prefix}-{}", uuid::Uuid::new_v4()));
-    std::fs::create_dir_all(&dir).map_err(|e| DbError::InitError(format!("temp dir: {e}")))?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700))
-            .map_err(|e| DbError::InitError(format!("temp dir perms: {e}")))?;
-    }
-    Ok(dir)
+    crate::platform::private_scratch_dir(prefix)
+        .map_err(|e| DbError::InitError(format!("temp dir: {e}")))
 }
 
 // ---------------------------------------------------------------------------

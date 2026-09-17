@@ -197,6 +197,36 @@ input, textarea, [contenteditable="true"], .xterm {
   user-select: text;
 }
 
+/* ─── Touch input ──────────────────────────────────────────────────────────
+   Only applied where the primary input cannot hover, i.e. real touch devices.
+   A laptop with a touchscreen keeps the pointer behaviour it already had. */
+@media (hover: none) {
+  /* Removes the ~300ms synthetic click delay and the grey flash Android draws
+     over tapped elements — both make the UI feel broken rather than slow. */
+  html {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  /* Stops a scroll that reaches the end of a pane from scrolling the page
+     behind it, and suppresses pull-to-refresh, which would otherwise reload
+     the whole webview and drop every open SSH session. */
+  body {
+    overscroll-behavior: none;
+  }
+}
+
+/* Safe-area helpers for full-bleed surfaces (viewport-fit=cover in index.html).
+   env() resolves to 0 wherever there is no inset, so these are inert on
+   desktop and on devices without a cutout or gesture bar. */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+
 /* Keyframe animations */
 
 @keyframes shimmer {

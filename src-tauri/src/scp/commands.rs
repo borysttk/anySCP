@@ -458,6 +458,7 @@ pub async fn scp_cancel_transfer(
 
 /// Download a remote file to a temp dir, open it in an external editor, and
 /// re-upload on each save. Mirrors `sftp_edit_external` but over SCP.
+#[cfg(not(target_os = "android"))]
 #[tauri::command]
 #[instrument(skip(scp_manager, app_handle, editor), fields(scp_session_id = %scp_session_id, remote_path = %remote_path))]
 pub async fn scp_edit_external(
@@ -662,4 +663,17 @@ pub async fn scp_set_concurrency(
     }
     transfer_manager.set_max_concurrent(max_concurrent);
     Ok(())
+}
+
+/// Android stub — see `sftp_edit_external` for the rationale.
+#[cfg(target_os = "android")]
+#[tauri::command]
+pub async fn scp_edit_external(
+    _scp_session_id: String,
+    _remote_path: String,
+    _editor: Option<crate::editors::EditorConfig>,
+) -> Result<(), ScpError> {
+    Err(ScpError::LocalIoError(crate::platform::unsupported(
+        "Editing in an external editor",
+    )))
 }

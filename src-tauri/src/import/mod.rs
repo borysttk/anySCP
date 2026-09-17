@@ -1,6 +1,7 @@
 pub mod commands;
 
 use serde::{Deserialize, Serialize};
+#[cfg(not(target_os = "android"))]
 use ssh2_config::{ParseRule, SshConfig};
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
@@ -44,6 +45,8 @@ pub struct ImportResult {
 // ─── Parsing ─────────────────────────────────────────────────────────────────
 
 /// Parse an SSH config file and return a list of importable host entries.
+/// Not available on Android (no standard ~/.ssh/config).
+#[cfg(not(target_os = "android"))]
 pub fn parse_ssh_config(
     path: Option<&str>,
     existing_hosts: &[(String, String, u16)], // (host, username, port) tuples
@@ -140,6 +143,15 @@ pub fn parse_ssh_config(
     }
 
     Ok(entries)
+}
+
+/// Android stub — no SSH config on Android.
+#[cfg(target_os = "android")]
+pub fn parse_ssh_config(
+    _path: Option<&str>,
+    _existing_hosts: &[(String, String, u16)],
+) -> Result<Vec<SshConfigEntry>, SshError> {
+    Ok(Vec::new())
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

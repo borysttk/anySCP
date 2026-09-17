@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { HOST_COLORS } from "./HostCard";
 import { ModalShell, BTN_GHOST, BTN_PRIMARY } from "../shared/ModalShell";
+import { useTranslation } from "react-i18next";
 
 // ─── Icon registry ───────────────────────────────────────────────────────────
 
@@ -57,6 +58,7 @@ interface GroupModalProps {
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function GroupModal({ open, onClose, onSave, initial }: GroupModalProps) {
+  const { t } = useTranslation();
   const [name, setName] = useState("");
   const [color, setColor] = useState(HOST_COLORS[4]);
   const [icon, setIcon] = useState("Folder");
@@ -149,7 +151,7 @@ export function GroupModal({ open, onClose, onSave, initial }: GroupModalProps) 
         </div>
 
         <div>
-          <span className={labelClass}>Icon</span>
+          <span className={labelClass}>{t('components_dashboard_GroupModal_icon')}</span>
           <div className="grid grid-cols-10 gap-1">
             {GROUP_ICONS.map((item) => {
               const Icon = item.icon;
@@ -180,7 +182,7 @@ export function GroupModal({ open, onClose, onSave, initial }: GroupModalProps) 
         </div>
 
         <div>
-          <span className={labelClass}>Color</span>
+          <span className={labelClass}>{t('components_dashboard_HostEditModal_color')}</span>
           <div className="flex items-center gap-2 flex-wrap">
             {HOST_COLORS.map((c) => (
               <button

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { TerminalSquare, FolderOpen, Loader2 } from "lucide-react";
 import { useSessionStore } from "../../stores/session-store";
 import { useSftpStore } from "../../stores/sftp-store";
+import { useTranslation } from "react-i18next";
 
 export function SftpSessionPicker() {
   const sessions = useSessionStore((s) => s.sessions);
@@ -159,6 +160,7 @@ export function SftpSessionPicker() {
 // ─── Empty state ──────────────────────────────────────────────────────────────
 
 function EmptyState() {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-col items-center gap-4 py-16 text-center">
       <div className="flex items-center justify-center w-14 h-14 rounded-xl bg-bg-surface border border-border">
@@ -170,7 +172,7 @@ function EmptyState() {
         </p>
         <p className="text-[length:var(--text-xs)] text-text-muted mt-1 max-w-xs">
           Connect to a host from the{" "}
-          <span className="text-accent font-medium">Hosts</span> page first, then
+          <span className="text-accent font-medium">{t('components_sftp_SftpSessionPicker_hosts')}</span> page first, then
           return here to browse files.
         </p>
       </div>

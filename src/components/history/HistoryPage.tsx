@@ -11,6 +11,7 @@ import { ConfirmDangerDialog } from "../shared/ConfirmDangerDialog";
 import type { ContextMenuItem } from "../shared/ContextMenu";
 import type { ConnectionHistoryEntry } from "../../types";
 import { parseSqliteUtc } from "../../utils/time";
+import { useTranslation } from "react-i18next";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -48,6 +49,7 @@ const PAGE_SIZE = 50;
 
 
 export function HistoryPage() {
+  const { t } = useTranslation();
   const hosts = useHostsStore((s) => s.hosts);
   const loadHosts = useHostsStore((s) => s.loadHosts);
   const [entries, setEntries] = useState<ConnectionHistoryEntry[]>([]);
@@ -211,7 +213,7 @@ export function HistoryPage() {
           {/* Page title */}
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-[length:var(--text-lg)] font-semibold text-text-primary">History</h1>
+              <h1 className="text-[length:var(--text-lg)] font-semibold text-text-primary">{t('components_history_HistoryPage_history')}</h1>
               <p className="text-[length:var(--text-xs)] text-text-muted mt-1">
                 Audit log of all SSH connections — when you connected, to which host, and as which user
               </p>

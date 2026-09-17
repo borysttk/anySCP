@@ -189,6 +189,14 @@ impl TransferManager {
                     let app_handle = app_handle.clone();
 
                     tokio::spawn(async move {
+                        // Promote the process to a foreground service for the
+                        // duration of the transfer. On Android this is what
+                        // stops the OS freezing the process (and stalling the
+                        // transfer) once the app is backgrounded; on desktop
+                        // both calls are no-ops. Paired across the await so the
+                        // notification clears even if the transfer fails.
+                        crate::platform::foreground::transfer_started("Transferring files");
+
                         execute_transfer(
                             &jobs,
                             &finished_order,
@@ -197,6 +205,8 @@ impl TransferManager {
                             &app_handle,
                         )
                         .await;
+
+                        crate::platform::foreground::transfer_finished();
                         drop(permit);
                     });
                 }

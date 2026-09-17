@@ -6,6 +6,7 @@ import { useGroupsStore } from "../../stores/groups-store";
 import { CustomSelect } from "../shared/CustomSelect";
 import { S3_PROVIDERS } from "../../types";
 import type { S3Provider, S3Connection } from "../../types";
+import { useTranslation } from "react-i18next";
 
 interface S3ConnectDialogProps {
   onClose: () => void;
@@ -25,7 +26,8 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
 }
 
 export function S3ConnectDialog({ onClose, editConnection }: S3ConnectDialogProps) {
-  const isEdit = !!editConnection;
+  const isEdit = !!editConnection
+  const { t } = useTranslation();;
   const [provider, setProvider] = useState<S3Provider>(
     (editConnection?.provider as S3Provider) ?? "aws",
   );
@@ -192,10 +194,10 @@ export function S3ConnectDialog({ onClose, editConnection }: S3ConnectDialogProp
       }
     >
         <div className="flex flex-col gap-3.5">
-          <SectionHeader>Provider</SectionHeader>
+          <SectionHeader>{t('components_s3_S3ConnectDialog_provider')}</SectionHeader>
 
           <div>
-            <label className={labelClass}>Service</label>
+            <label className={labelClass}>{t('components_s3_S3ConnectDialog_service')}</label>
             <CustomSelect
               data-testid="s3-dialog-provider"
               value={provider}
@@ -220,7 +222,7 @@ export function S3ConnectDialog({ onClose, editConnection }: S3ConnectDialogProp
             />
           </div>
 
-          <SectionHeader>Credentials</SectionHeader>
+          <SectionHeader>{t('components_s3_S3ConnectDialog_credentials')}</SectionHeader>
 
           {isEdit && (
             <p className="text-[length:var(--text-2xs)] text-text-muted -mb-1">
@@ -229,7 +231,7 @@ export function S3ConnectDialog({ onClose, editConnection }: S3ConnectDialogProp
           )}
 
           <div>
-            <label className={labelClass}>Access Key ID</label>
+            <label className={labelClass}>{t('components_s3_S3ConnectDialog_access_key_id')}</label>
             <input
               data-testid="s3-dialog-access-key"
               type="text"
@@ -241,7 +243,7 @@ export function S3ConnectDialog({ onClose, editConnection }: S3ConnectDialogProp
           </div>
 
           <div>
-            <label className={labelClass}>Secret Access Key</label>
+            <label className={labelClass}>{t('components_s3_S3ConnectDialog_secret_access_key')}</label>
             <input
               data-testid="s3-dialog-secret-key"
               type="password"
@@ -252,11 +254,11 @@ export function S3ConnectDialog({ onClose, editConnection }: S3ConnectDialogProp
             />
           </div>
 
-          <SectionHeader>Connection</SectionHeader>
+          <SectionHeader>{t('components_dashboard_HostEditModal_connection')}</SectionHeader>
 
           <div className="flex gap-3">
             <div className="flex-1">
-              <label className={labelClass}>Region</label>
+              <label className={labelClass}>{t('components_s3_S3ConnectDialog_region')}</label>
               <input
                 data-testid="s3-dialog-region"
                 type="text"
@@ -267,7 +269,7 @@ export function S3ConnectDialog({ onClose, editConnection }: S3ConnectDialogProp
               />
             </div>
             <div className="flex-1">
-              <label className={labelClass}>Bucket</label>
+              <label className={labelClass}>{t('components_s3_S3ConnectDialog_bucket')}</label>
               <input
                 data-testid="s3-dialog-bucket"
                 type="text"
@@ -281,7 +283,7 @@ export function S3ConnectDialog({ onClose, editConnection }: S3ConnectDialogProp
 
           {(provider !== "aws") && (
             <div>
-              <label className={labelClass}>Endpoint URL</label>
+              <label className={labelClass}>{t('components_s3_S3ConnectDialog_endpoint_url')}</label>
               <input
                 data-testid="s3-dialog-endpoint"
                 type="text"
@@ -293,11 +295,11 @@ export function S3ConnectDialog({ onClose, editConnection }: S3ConnectDialogProp
             </div>
           )}
 
-          <SectionHeader>Appearance</SectionHeader>
+          <SectionHeader>{t('components_dashboard_HostEditModal_appearance')}</SectionHeader>
 
           {groups.length > 0 && (
             <div>
-              <label className={labelClass}>Group</label>
+              <label className={labelClass}>{t('components_s3_S3ConnectDialog_group')}</label>
               <CustomSelect
                 value={groupId}
                 onChange={setGroupId}
@@ -312,11 +314,11 @@ export function S3ConnectDialog({ onClose, editConnection }: S3ConnectDialogProp
 
           <div className="flex gap-3">
             <div className="flex-1">
-              <label className={labelClass}>Environment</label>
+              <label className={labelClass}>{t('components_s3_S3ConnectDialog_environment')}</label>
               <CustomSelect
                 value={environment}
                 onChange={setEnvironment}
-                placeholder="None"
+                placeholder={t('components_dashboard_ImportSshConfigModal_none')}
                 options={[
                   { value: "", label: "None" },
                   { value: "production", label: "Production" },
@@ -327,7 +329,7 @@ export function S3ConnectDialog({ onClose, editConnection }: S3ConnectDialogProp
               />
             </div>
             <div className="flex-1">
-              <label className={labelClass}>Color</label>
+              <label className={labelClass}>{t('components_dashboard_HostEditModal_color')}</label>
               <div className="flex gap-1.5 py-2">
                 {["#6366f1", "#8b5cf6", "#ec4899", "#f43f5e", "#f97316", "#eab308", "#22c55e", "#06b6d4"].map((c) => (
                   <button
@@ -347,7 +349,7 @@ export function S3ConnectDialog({ onClose, editConnection }: S3ConnectDialogProp
             </div>
           </div>
 
-          <SectionHeader>Notes</SectionHeader>
+          <SectionHeader>{t('components_dashboard_HostEditModal_notes')}</SectionHeader>
 
           <div>
             <label className={labelClass}>

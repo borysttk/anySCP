@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import "@xterm/xterm/css/xterm.css";
 import { useSshOutput } from "../../hooks/use-ssh-events";
 import {
@@ -7,6 +7,9 @@ import {
   getTerminalTheme,
 } from "../../stores/terminal-instances";
 import { useSettingsStore } from "../../stores/settings-store";
+import { useVisualViewport } from "../../hooks/use-visual-viewport";
+import { isMobile } from "../../lib/platform";
+import { TerminalKeyBar } from "./TerminalKeyBar";
 import type { SessionId } from "../../types";
 
 interface TerminalProps {
@@ -47,6 +50,14 @@ export function Terminal({ sessionId }: TerminalProps) {
   useSshOutput(sessionId, (data) => {
     ensureTerminal(sessionId).term.write(data);
   });
+
+  // Re-fit when the Android soft keyboard opens or closes. The ResizeObserver
+  // below does not reliably fire for IME-driven viewport changes, so the
+  // visual-viewport hook drives the fit directly. No-op on desktop.
+  const refit = useCallback(() => {
+    getTerminal(sessionId)?.fitAddon.fit();
+  }, [sessionId]);
+  useVisualViewport(refit);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -175,18 +186,28 @@ export function Terminal({ sessionId }: TerminalProps) {
     term.refresh(0, term.rows - 1);
   }, [sessionId, fontFamily, fontSize, lineHeight, cursorStyle, cursorBlink, scrollback]);
 
+  // Evaluated once per mount: the platform cannot change at runtime, so this
+  // does not need to be reactive state.
+  const mobile = isMobile();
+
   return (
-    <div
-      ref={containerRef}
-      data-testid={`terminal-${sessionId}`}
-      data-session-id={sessionId}
-      className="h-full w-full bg-bg-base p-2"
-      onKeyDown={(e) => {
-        if (e.metaKey && (e.key === "d" || e.key === "D")) {
-          e.preventDefault();
-          e.stopPropagation();
-        }
-      }}
-    />
+    // Column wrapper so the key bar can claim its own height instead of
+    // overlaying the terminal. On desktop the single flex child fills the box
+    // exactly as before, leaving the layout unchanged.
+    <div className="flex h-full w-full flex-col">
+      <div
+        ref={containerRef}
+        data-testid={`terminal-${sessionId}`}
+        data-session-id={sessionId}
+        className="min-h-0 w-full flex-1 bg-bg-base p-2"
+        onKeyDown={(e) => {
+          if (e.metaKey && (e.key === "d" || e.key === "D")) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        }}
+      />
+      {mobile && <TerminalKeyBar sessionId={sessionId} />}
+    </div>
   );
 }

@@ -153,9 +153,27 @@ pub fn is_ppk_format(key_data: &str) -> bool {
     key_data.starts_with("PuTTY-User-Key-File-2:") || key_data.starts_with("PuTTY-User-Key-File-3:")
 }
 
+/// Convert a PPK file to OpenSSH format.
+///
+/// Android cannot shell out to `puttygen` — apps may not spawn arbitrary
+/// executables — so PPK keys must be converted on a desktop before import.
+/// The error is surfaced at connect time, where the user can act on it.
+#[cfg(target_os = "android")]
+pub fn convert_ppk_to_openssh(
+    _ppk_path: &str,
+    _passphrase: Option<&str>,
+) -> Result<String, SshError> {
+    Err(SshError::KeyParseError(
+        "PuTTY PPK keys are not supported on Android. Convert the key to OpenSSH \
+         format on a desktop first: puttygen key.ppk -O private-openssh -o key"
+            .to_string(),
+    ))
+}
+
 /// Convert a PPK file to OpenSSH format using puttygen.
 /// Returns the converted key data as a string.
 /// If puttygen is not available, returns an error with install instructions.
+#[cfg(not(target_os = "android"))]
 pub fn convert_ppk_to_openssh(
     ppk_path: &str,
     passphrase: Option<&str>,
@@ -241,15 +259,30 @@ pub fn convert_ppk_to_openssh(
 // ---------------------------------------------------------------------------
 
 /// Returns the path to the user's `~/.ssh/` directory.
+///
+/// On Android there is no user home directory: `HOME` is typically unset or
+/// points at a location the app sandbox cannot read. Returning a path that is
+/// guaranteed not to exist makes [`list_ssh_keys`] yield an empty list via its
+/// existing `!ssh_dir.exists()` early return, which is the correct answer —
+/// keys are imported through the file picker and stored in app-private
+/// storage instead of being discovered on disk.
 fn ssh_dir() -> Result<PathBuf, SshError> {
-    let home = std::env::var("HOME")
-        .or_else(|_| std::env::var("USERPROFILE"))
-        .map_err(|_| {
-            SshError::IoError(
-                "cannot determine home directory (HOME/USERPROFILE unset)".to_string(),
-            )
-        })?;
-    Ok(PathBuf::from(home).join(".ssh"))
+    #[cfg(target_os = "android")]
+    {
+        return Ok(PathBuf::from("/nonexistent/.ssh"));
+    }
+
+    #[cfg(not(target_os = "android"))]
+    {
+        let home = std::env::var("HOME")
+            .or_else(|_| std::env::var("USERPROFILE"))
+            .map_err(|_| {
+                SshError::IoError(
+                    "cannot determine home directory (HOME/USERPROFILE unset)".to_string(),
+                )
+            })?;
+        Ok(PathBuf::from(home).join(".ssh"))
+    }
 }
 
 /// Return `true` when the file looks like a private SSH key.

@@ -20,6 +20,7 @@ import {
 import { useTabStore, type UnifiedTab, type PageId } from "../../stores/tab-store";
 import { useSessionStore, countPanes, getTopDirection } from "../../stores/session-store";
 import { useUiStore } from "../../stores/ui-store";
+import { useTranslation } from "react-i18next";
 
 // ─── Icon mapping ───────────────────────────────────────────────────────────
 
@@ -55,6 +56,7 @@ const CHEVRON_BTN =
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export function UnifiedTabBar() {
+  const { t } = useTranslation();
   const tabOrder = useTabStore((s) => s.tabOrder);
   const tabs = useTabStore((s) => s.tabs);
   const activeTabId = useTabStore((s) => s.activeTabId);
@@ -325,7 +327,7 @@ export function UnifiedTabBar() {
             ].join(" ")}
           >
             <Code size={14} strokeWidth={1.8} aria-hidden="true" />
-            <span>Snippets</span>
+            <span>{t('components_layout_UnifiedTabBar_snippets')}</span>
           </button>
         </div>
       )}

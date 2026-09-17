@@ -12,6 +12,7 @@ import {
   sanitizeOctalInput,
   type PermissionBits,
 } from "../../lib/permissions";
+import { useTranslation } from "react-i18next";
 
 // ─── Props ──────────────────────────────────────────────────────────────────
 
@@ -54,6 +55,7 @@ export function FilePropertiesDialog({
   onApplyPermissions,
   onClose,
 }: FilePropertiesDialogProps) {
+  const { t } = useTranslation();
   const isDir = entry.entryType === "Directory";
 
   // Special permission bits (setuid/setgid/sticky) live in the raw mode but the
@@ -232,7 +234,7 @@ export function FilePropertiesDialog({
         {/* File info */}
         <div className="flex flex-col gap-0 px-4 py-3">
           <div className="flex items-baseline gap-3 py-1">
-            <span className={labelClass}>Type</span>
+            <span className={labelClass}>{t('components_explorer_FilePropertiesDialog_type')}</span>
             <span className={valueClass}>
               {entry.isSymlink ? "Symlink" : isDir ? "Directory" : "File"}
             </span>
@@ -240,20 +242,20 @@ export function FilePropertiesDialog({
 
           {!isDir && (
             <div className="flex items-baseline gap-3 py-1">
-              <span className={labelClass}>Size</span>
+              <span className={labelClass}>{t('components_explorer_FilePropertiesDialog_size')}</span>
               <span className={valueClass}>{formatBytes(entry.size)}</span>
             </div>
           )}
 
           <div className="flex items-baseline gap-3 py-1">
-            <span className={labelClass}>Location</span>
+            <span className={labelClass}>{t('components_explorer_FilePropertiesDialog_location')}</span>
             <span className={`${valueClass} font-mono text-[length:var(--text-2xs)]`} title={location}>
               {location}
             </span>
           </div>
 
           <div className="flex items-baseline gap-3 py-1">
-            <span className={labelClass}>Path</span>
+            <span className={labelClass}>{t('components_explorer_FilePropertiesDialog_path')}</span>
             <span className={`${valueClass} font-mono text-[length:var(--text-2xs)]`} title={entry.id}>
               {entry.id}
             </span>
@@ -268,13 +270,13 @@ export function FilePropertiesDialog({
           </div>
 
           <div className="flex items-baseline gap-3 py-1">
-            <span className={labelClass}>Modified</span>
+            <span className={labelClass}>{t('components_explorer_FilePropertiesDialog_modified')}</span>
             <span className={valueClass}>{modified}</span>
           </div>
 
           {capabilities.hasStorageClass && entry.storageClass && (
             <div className="flex items-baseline gap-3 py-1">
-              <span className={labelClass}>Class</span>
+              <span className={labelClass}>{t('components_explorer_FilePropertiesDialog_class')}</span>
               <span className={valueClass}>{entry.storageClass}</span>
             </div>
           )}
@@ -296,9 +298,9 @@ export function FilePropertiesDialog({
               <thead>
                 <tr className="text-text-muted">
                   <th className="text-left font-medium w-16" />
-                  <th className="font-medium py-1">Read</th>
-                  <th className="font-medium py-1">Write</th>
-                  <th className="font-medium py-1">Execute</th>
+                  <th className="font-medium py-1">{t('components_explorer_FilePropertiesDialog_read')}</th>
+                  <th className="font-medium py-1">{t('components_explorer_FilePropertiesDialog_write')}</th>
+                  <th className="font-medium py-1">{t('components_explorer_FilePropertiesDialog_execute')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -324,7 +326,7 @@ export function FilePropertiesDialog({
             </table>
 
             <div className="flex items-center gap-2 mt-3">
-              <span className="text-[length:var(--text-xs)] text-text-muted">Octal</span>
+              <span className="text-[length:var(--text-xs)] text-text-muted">{t('components_explorer_FilePropertiesDialog_octal')}</span>
               <input
                 type="text"
                 inputMode="numeric"

@@ -41,7 +41,9 @@ export function CardActionButton({
       aria-busy={busy || undefined}
       aria-label={ariaLabel}
       className={[
-        "group/btn relative flex items-center justify-center h-8 w-8 rounded-md",
+        // 44px tap target on touch viewports (WCAG 2.5.5); desktop keeps the
+        // denser 32px icon button.
+        "group/btn relative flex items-center justify-center h-11 w-11 sm:h-8 sm:w-8 rounded-md",
         colorClass,
         "hover:text-text-primary hover:bg-bg-overlay",
         "transition-[background-color,color] duration-[var(--duration-fast)]",

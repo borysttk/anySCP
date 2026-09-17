@@ -11,6 +11,7 @@ import { createSftpProvider, toExplorerEntry } from "../../providers/sftp-provid
 import { explorerInvoke, transferEventName, type Transport } from "../../lib/explorer-transport";
 import { editorLaunchErrorMessage } from "../../lib/editor-errors";
 import { conflictingNames } from "../../lib/drop-conflicts";
+import { pickDownloadTarget } from "../../lib/download-target";
 import { toast } from "../../stores/toast-store";
 import type { EditorConfig } from "../../stores/settings-store";
 
@@ -380,19 +381,24 @@ export function ExplorerView({ sessionId, transport = "sftp", isActive = true }:
           localDir,
         });
       } else {
-        const { save } = await import("@tauri-apps/plugin-dialog");
-        const savePath = await save({
-          defaultPath: entry.name,
-          title: `Save "${entry.name}" as…`,
-        });
-        if (!savePath) return;
+        // Resolves to a plain path on desktop, or a staged path plus a SAF
+        // content:// destination on Android — see pickDownloadTarget.
+        const target = await pickDownloadTarget(entry.name);
+        if (!target) return;
 
-        // Use the single-file download API with the full user-chosen path,
-        // so a renamed file is saved under the name the user picked.
-        await explorerInvoke(transport, "download", sessionId, {
-          remotePath: entry.id,
-          localPath: savePath,
-        });
+        try {
+          // Use the single-file download API with the full user-chosen path,
+          // so a renamed file is saved under the name the user picked.
+          await explorerInvoke(transport, "download", sessionId, {
+            remotePath: entry.id,
+            localPath: target.path,
+          });
+        } catch (err) {
+          // Never leave a staged file behind in the app cache.
+          await target.discard();
+          throw err;
+        }
+        await target.finalize();
       }
     } catch (err) {
       console.error("Download failed:", err);

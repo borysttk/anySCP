@@ -61,10 +61,9 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # OS credential store: macOS Keychain (apple-native), Windows DPAPI
-# (windows-native), Linux kernel keyutils (linux-native — name is misleading;
-# it's the keyutils backend, not libsecret). On Linux, PAM normally sets up
-# a session keyring on login; in containers you need `keyctl session` + a
-# non-default seccomp profile.
+# (windows-native), Linux kernel keyutils (linux-native). On Linux, PAM
+# normally sets up a session keyring on login; in containers you need
+# `keyctl session` + a non-default seccomp profile.
 keyring = { version = "3", features = ["apple-native", "linux-native", "windows-native"] }
 tauri-plugin-dialog = "2.6.0"
 tauri-plugin-updater = "2"
@@ -78,9 +77,6 @@ tauri-plugin-clipboard-manager = "2.3.2"
 # use the `drag` crate directly (rather than tauri-plugin-drag) so the drag is
 # driven from a backend command that only ever hands the OS validated staging
 # paths — the webview can't name an arbitrary local file to drag out.
-drag = "2"
-ssh2-config = "0.7.0"
-rust-s3 = { version = "0.37.1", default-features = false, features = ["tokio-rustls-tls"] }
 
 # Encrypted backup/restore: Argon2id key derivation + AES-256-GCM, written as a
 # compact binary container (no JSON/base64). `getrandom` provides the OS CSPRNG
@@ -93,8 +89,18 @@ getrandom = "0.2"
 flate2 = "1"
 
 # Telemetry
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
 dirs = "6"
+rust-s3 = { version = "0.37.1", default-features = false, features = ["tokio-rustls-tls"] }
+ndk-context = "0.1.1"
+jni = "0.21"
+
+# Desktop-only (not Android)
+[target.'cfg(not(target_os = "android"))'.dependencies]
+drag = "2"
+
+[target.'cfg(target_os = "android")'.dependencies]
+getrandom = { version = "0.2", features = ["std"] }
 
 [dev-dependencies]
 tempfile = "3"

@@ -326,3 +326,40 @@ screenshots: $(E2E_IMAGE_STAMP)
 		ec=$$?; \
 		$(E2E_COMPOSE) down --remove-orphans >/dev/null 2>&1; \
 		exit $$ec
+# ── Android ─────────────────────────────────────────────────────────────────
+#
+# `tauri android init` generates src-tauri/gen/android/, which is gitignored
+# because it is regenerated output. The anySCP-specific Kotlin sources live in
+# src-tauri/android/ under version control; this target copies them into the
+# generated tree after an init (or after a regeneration wipes them).
+#
+# See docs/android-port/BUILD.md for the full build walkthrough.
+
+ANDROID_GEN  := src-tauri/gen/android
+ANDROID_PKG  := $(ANDROID_GEN)/app/src/main/java/com/macnev2013/anyscp
+ANDROID_SRC  := src-tauri/android
+
+android-sync:
+	@if [ ! -d "$(ANDROID_GEN)" ]; then \
+		echo "error: $(ANDROID_GEN) not found — run 'pnpm tauri android init' first"; \
+		exit 1; \
+	fi
+	@mkdir -p $(ANDROID_PKG)
+	@cp $(ANDROID_SRC)/SecureStore.kt      $(ANDROID_PKG)/
+	@cp $(ANDROID_SRC)/TransferService.kt  $(ANDROID_PKG)/
+	@cp $(ANDROID_SRC)/SafBridge.kt        $(ANDROID_PKG)/
+	@cp $(ANDROID_SRC)/MainActivity.kt     $(ANDROID_PKG)/
+	@echo "copied Kotlin sources → $(ANDROID_PKG)"
+	@echo "note: MainActivity.kt overwrites the generated one (adds lifecycle + SAF hooks)"
+	@echo
+	@echo "Manual step: merge $(ANDROID_SRC)/AndroidManifest.additions.xml into"
+	@echo "  $(ANDROID_GEN)/app/src/main/AndroidManifest.xml"
+	@echo "  (permissions, the TransferService element, and the MainActivity attributes)"
+
+# Compile-only check across the shipped ABIs — the same gate CI runs. Catches a
+# desktop-only crate leaking into the Android dependency set without needing
+# Gradle or a keystore.
+android-check:
+	cd src-tauri && cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 check --lib
+
+.PHONY: android-sync android-check

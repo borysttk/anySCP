@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { useSettingsStore } from "./settings-store";
+import { supportsSelfUpdate } from "../lib/platform";
 import type { Update } from "@tauri-apps/plugin-updater";
 
 export type UpdaterStatus =
@@ -96,6 +97,13 @@ export const useUpdaterStore = create<UpdaterState>((set, get) => ({
   // update and relaunches immediately into the new binary. With it off, surfaces
   // a popup unless the user skipped this exact version.
   checkOnStartup: async () => {
+    // Android ships through Google Play, which forbids self-install and has no
+    // updater plugin. Report "up-to-date" so the Settings row renders a stable
+    // state rather than a spinner that never resolves.
+    if (!supportsSelfUpdate()) {
+      set({ status: "up-to-date" });
+      return;
+    }
     if (get().status === "checking" || get().status === "downloading") return;
     set({ status: "checking", error: null });
     try {
@@ -144,6 +152,10 @@ export const useUpdaterStore = create<UpdaterState>((set, get) => ({
   // The Settings "Check" button. Honours the auto-update setting: installs
   // silently when on, otherwise opens the popup.
   checkManually: async () => {
+    if (!supportsSelfUpdate()) {
+      set({ status: "up-to-date" });
+      return;
+    }
     if (get().status === "checking" || get().status === "downloading") return;
     set({ status: "checking", error: null });
     try {

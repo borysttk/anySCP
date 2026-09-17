@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { ModalShell, BTN_GHOST, BTN_PRIMARY, BTN_DANGER } from "../shared/ModalShell";
 import { ModalBackdrop } from "../shared/ModalBackdrop";
 import { useSettingsStore } from "../../stores/settings-store";
 import { CustomSelect, type SelectOption } from "../shared/CustomSelect";
 import { useUpdaterStore } from "../../stores/updater-store";
 import { toast } from "../../stores/toast-store";
-import { RefreshCw, CheckCircle2, AlertCircle, Palette, SquareTerminal, ArrowUpDown, Info, ExternalLink, Check, FileCode, Plus, Trash2, FolderOpen, Star, Search, Database, Download, Upload, ShieldCheck } from "lucide-react";
+import { RefreshCw, ChevronLeft, CheckCircle2, AlertCircle, Palette, SquareTerminal, ArrowUpDown, Info, ExternalLink, Check, FileCode, Plus, Trash2, FolderOpen, Star, Search, Database, Download, Upload, ShieldCheck } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { CursorStyle, ThemeMode, EditorConfig, PasteButton, DoubleClickAction } from "../../stores/settings-store";
 
@@ -77,16 +78,30 @@ let lastSettingsSection: SectionId = "appearance";
 
 export function SettingsPage() {
   const [active, setActive] = useState<SectionId>(() => lastSettingsSection);
-  const selectSection = (id: SectionId) => { lastSettingsSection = id; setActive(id); };
+  // Phones cannot show the sidebar and the panel at once, so they drill down:
+  // level 1 is the category list, level 2 the section detail. This is driven by
+  // CSS breakpoints rather than a JS viewport check so the desktop two-pane
+  // layout is never conditional — the e2e suite clicks `settings-nav-*` on a
+  // desktop-sized window and must keep finding those nodes.
+  const [detailOpen, setDetailOpen] = useState(false);
+  const selectSection = (id: SectionId) => {
+    lastSettingsSection = id;
+    setActive(id);
+    setDetailOpen(true);
+  };
   const activeSection = SECTIONS.find((s) => s.id === active);
 
   return (
-    <div className="flex flex-col h-full p-2">
-      <div className="flex flex-1 min-h-0 rounded-lg overflow-hidden border border-border/60">
-        {/* Sidebar */}
+    <div className="flex flex-col h-full p-0 sm:p-2">
+      <div className="flex flex-1 min-h-0 rounded-none sm:rounded-lg overflow-hidden border-0 sm:border border-border/60">
+        {/* Sidebar — full width on mobile (level 1), fixed rail from `sm` up. */}
         <nav
           aria-label="Settings sections"
-          className="w-60 shrink-0 flex flex-col gap-1 px-3 py-4 border-r border-border/50 bg-bg-surface/40 overflow-y-auto no-select"
+          className={[
+            "w-full sm:w-60 shrink-0 flex-col gap-1 px-3 py-4",
+            "border-r-0 sm:border-r border-border/50 bg-bg-surface/40 overflow-y-auto no-select",
+            detailOpen ? "hidden sm:flex" : "flex",
+          ].join(" ")}
         >
           <h2 className="px-3 pt-1 pb-2 text-[length:var(--text-2xs)] font-semibold uppercase tracking-wider text-text-muted">
             Settings
@@ -102,6 +117,7 @@ export function SettingsPage() {
                 onClick={() => selectSection(id)}
                 className={[
                   "flex items-center gap-2.5 px-3 py-2 rounded-lg text-left",
+                  "min-h-[44px] sm:min-h-0",
                   "text-[length:var(--text-sm)] font-medium",
                   "transition-colors duration-[var(--duration-fast)]",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -121,12 +137,24 @@ export function SettingsPage() {
           })}
         </nav>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-scroll bg-bg-base">
-          <div className="max-w-4xl mx-auto px-8 py-6">
+        {/* Content — level 2 on mobile, the right-hand pane on desktop. */}
+        <div className={[
+          "flex-1 overflow-y-scroll bg-bg-base",
+          detailOpen ? "block" : "hidden sm:block",
+        ].join(" ")}>
+          <div className="max-w-4xl mx-auto px-4 sm:px-8 py-4 sm:py-6">
             {/* Section header */}
             <div className="mb-6">
-              <h1 className="text-2xl font-semibold tracking-tight text-text-primary">
+              <button
+                type="button"
+                data-testid="settings-back"
+                onClick={() => setDetailOpen(false)}
+                className="sm:hidden flex items-center gap-1.5 -ml-1.5 mb-3 px-1.5 py-2 min-h-[44px] rounded-lg text-[length:var(--text-sm)] font-medium text-text-secondary hover:text-text-primary transition-colors duration-[var(--duration-fast)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <ChevronLeft size={16} strokeWidth={1.8} aria-hidden="true" />
+                Settings
+              </button>
+              <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-text-primary">
                 {activeSection?.label}
               </h1>
               <p className="text-[length:var(--text-sm)] text-text-muted mt-1.5">
@@ -301,6 +329,7 @@ const ACCENT_PRESETS: { name: string; hue: number }[] = [
 ];
 
 function AppearanceSettings() {
+  const { t } = useTranslation();
   const themeMode = useSettingsStore((s) => s.themeMode);
   const setThemeMode = useSettingsStore((s) => s.setThemeMode);
   const accentHue = useSettingsStore((s) => s.accentHue);
@@ -342,8 +371,8 @@ function AppearanceSettings() {
     <SettingsGroup label="Theme">
       <SettingRow>
         <div>
-          <p className={LABEL_CLASS}>Color Theme</p>
-          <p className={DESC_CLASS}>Switch between the dark and softer grey light interface</p>
+          <p className={LABEL_CLASS}>{t('components_settings_SettingsPage_color_theme')}</p>
+          <p className={DESC_CLASS}>{t('components_settings_SettingsPage_switch_between_the_dark_and_softer_grey_light_interface')}</p>
         </div>
         <SegmentedControl<ThemeMode>
           id="s-light-theme"
@@ -358,8 +387,8 @@ function AppearanceSettings() {
 
       <SettingRow>
         <div>
-          <p className={LABEL_CLASS}>Accent Color</p>
-          <p className={DESC_CLASS}>Used for buttons, links, and active states</p>
+          <p className={LABEL_CLASS}>{t('components_settings_SettingsPage_accent_color')}</p>
+          <p className={DESC_CLASS}>{t('components_settings_SettingsPage_used_for_buttons_links_and_active_states')}</p>
         </div>
         <div className="flex items-center gap-2.5 shrink-0">
           {ACCENT_PRESETS.map((preset) => {
@@ -422,7 +451,7 @@ function AppearanceSettings() {
                 />
                 <div className="w-full flex flex-col gap-2.5">
                   <label className="flex flex-col gap-1">
-                    <span className="text-[length:var(--text-2xs)] uppercase tracking-wider text-text-muted">Lightness</span>
+                    <span className="text-[length:var(--text-2xs)] uppercase tracking-wider text-text-muted">{t('components_settings_SettingsPage_lightness')}</span>
                     <input
                       type="range" min={0.45} max={0.85} step={0.01} value={working.l}
                       onChange={(e) => updateCustom({ l: Number(e.target.value) })}
@@ -431,7 +460,7 @@ function AppearanceSettings() {
                     />
                   </label>
                   <label className="flex flex-col gap-1">
-                    <span className="text-[length:var(--text-2xs)] uppercase tracking-wider text-text-muted">Saturation</span>
+                    <span className="text-[length:var(--text-2xs)] uppercase tracking-wider text-text-muted">{t('components_settings_SettingsPage_saturation')}</span>
                     <input
                       type="range" min={0} max={0.3} step={0.005} value={working.c}
                       onChange={(e) => updateCustom({ c: Number(e.target.value) })}
@@ -450,8 +479,8 @@ function AppearanceSettings() {
     <SettingsGroup label="Interface">
       <SettingRow>
         <div>
-          <p className={LABEL_CLASS}>Interface Font</p>
-          <p className={DESC_CLASS}>Font for menus, labels, and panels</p>
+          <p className={LABEL_CLASS}>{t('components_settings_SettingsPage_interface_font')}</p>
+          <p className={DESC_CLASS}>{t('components_settings_SettingsPage_font_for_menus_labels_and_panels')}</p>
         </div>
         <CustomSelect
           id="s-interface-font"
@@ -465,8 +494,8 @@ function AppearanceSettings() {
       </SettingRow>
       <SettingRow>
         <div>
-          <p className={LABEL_CLASS}>Interface Monospace Font</p>
-          <p className={DESC_CLASS}>Font for paths, permissions, and code (not the terminal)</p>
+          <p className={LABEL_CLASS}>{t('components_settings_SettingsPage_interface_monospace_font')}</p>
+          <p className={DESC_CLASS}>{t('components_settings_SettingsPage_font_for_paths_permissions_and_code_not_the_terminal')}</p>
         </div>
         <CustomSelect
           id="s-interface-mono-font"
@@ -549,6 +578,7 @@ function HueWheel({ hue, onChange, size = 96, l = 0.70, c = 0.15 }: {
 }
 
 function TerminalSettings() {
+  const { t } = useTranslation();
   const fontSize = useSettingsStore((s) => s.terminalFontSize);
   const cursorStyle = useSettingsStore((s) => s.terminalCursorStyle);
   const cursorBlink = useSettingsStore((s) => s.terminalCursorBlink);
@@ -574,8 +604,8 @@ function TerminalSettings() {
       <SettingsGroup label="Font">
         <SettingRow>
           <div>
-            <label htmlFor="s-fontfamily" className={LABEL_CLASS}>Font Family</label>
-            <p className={DESC_CLASS}>Monospace font used by terminals</p>
+            <label htmlFor="s-fontfamily" className={LABEL_CLASS}>{t('components_settings_SettingsPage_font_family')}</label>
+            <p className={DESC_CLASS}>{t('components_settings_SettingsPage_monospace_font_used_by_terminals')}</p>
           </div>
           <CustomSelect
             id="s-fontfamily"
@@ -590,16 +620,16 @@ function TerminalSettings() {
 
         <SettingRow>
           <div>
-            <label htmlFor="s-fontsize" className={LABEL_CLASS}>Font Size</label>
-            <p className={DESC_CLASS}>Size in pixels (8–42)</p>
+            <label htmlFor="s-fontsize" className={LABEL_CLASS}>{t('components_settings_SettingsPage_font_size')}</label>
+            <p className={DESC_CLASS}>{t('components_settings_SettingsPage_size_in_pixels_8_42')}</p>
           </div>
           <RangeSetting id="s-fontsize" value={fontSize} min={8} max={42} step={1} unit="px" onChange={setFontSize} />
         </SettingRow>
 
         <SettingRow>
           <div>
-            <label htmlFor="s-lineheight" className={LABEL_CLASS}>Line Height</label>
-            <p className={DESC_CLASS}>Spacing between lines (1.0–2.0)</p>
+            <label htmlFor="s-lineheight" className={LABEL_CLASS}>{t('components_settings_SettingsPage_line_height')}</label>
+            <p className={DESC_CLASS}>{t('components_settings_SettingsPage_spacing_between_lines_1_0_2_0')}</p>
           </div>
           <RangeSetting id="s-lineheight" value={lineHeight} min={1.0} max={2.0} step={0.1} decimals={1} onChange={setLineHeight} />
         </SettingRow>
@@ -608,8 +638,8 @@ function TerminalSettings() {
       <SettingsGroup label="Cursor">
         <SettingRow>
           <div>
-            <p className={LABEL_CLASS}>Cursor Style</p>
-            <p className={DESC_CLASS}>Shape of the terminal cursor</p>
+            <p className={LABEL_CLASS}>{t('components_settings_SettingsPage_cursor_style')}</p>
+            <p className={DESC_CLASS}>{t('components_settings_SettingsPage_shape_of_the_terminal_cursor')}</p>
           </div>
           <SegmentedControl<CursorStyle>
             id="s-cursor"
@@ -625,8 +655,8 @@ function TerminalSettings() {
 
         <SettingRow>
           <div>
-            <label htmlFor="s-blink" className={LABEL_CLASS}>Cursor Blink</label>
-            <p className={DESC_CLASS}>Animate the cursor</p>
+            <label htmlFor="s-blink" className={LABEL_CLASS}>{t('components_settings_SettingsPage_cursor_blink')}</label>
+            <p className={DESC_CLASS}>{t('components_settings_SettingsPage_animate_the_cursor')}</p>
           </div>
           <Toggle id="s-blink" checked={cursorBlink} onChange={setCursorBlink} />
         </SettingRow>
@@ -635,16 +665,16 @@ function TerminalSettings() {
       <SettingsGroup label="Clipboard">
         <SettingRow>
           <div>
-            <label htmlFor="s-copyonselect" className={LABEL_CLASS}>Copy on Select</label>
-            <p className={DESC_CLASS}>Copy highlighted text to the clipboard automatically</p>
+            <label htmlFor="s-copyonselect" className={LABEL_CLASS}>{t('components_settings_SettingsPage_copy_on_select')}</label>
+            <p className={DESC_CLASS}>{t('components_settings_SettingsPage_copy_highlighted_text_to_the_clipboard_automatically')}</p>
           </div>
           <Toggle id="s-copyonselect" checked={copyOnSelect} onChange={setCopyOnSelect} />
         </SettingRow>
 
         <SettingRow>
           <div>
-            <p className={LABEL_CLASS}>Paste Button</p>
-            <p className={DESC_CLASS}>Mouse button that pastes the clipboard into the terminal</p>
+            <p className={LABEL_CLASS}>{t('components_settings_SettingsPage_paste_button')}</p>
+            <p className={DESC_CLASS}>{t('components_settings_SettingsPage_mouse_button_that_pastes_the_clipboard_into_the_terminal')}</p>
           </div>
           <SegmentedControl<PasteButton>
             id="s-pastebutton"
@@ -662,8 +692,8 @@ function TerminalSettings() {
       <SettingsGroup label="History">
         <SettingRow>
           <div>
-            <label htmlFor="s-scrollback" className={LABEL_CLASS}>Scrollback Buffer</label>
-            <p className={DESC_CLASS}>Number of lines to keep in history (500–100,000)</p>
+            <label htmlFor="s-scrollback" className={LABEL_CLASS}>{t('components_settings_SettingsPage_scrollback_buffer')}</label>
+            <p className={DESC_CLASS}>{t('components_settings_SettingsPage_number_of_lines_to_keep_in_history_500_100_000')}</p>
           </div>
           <NumberSetting id="s-scrollback" value={scrollback} min={500} max={100000} step={500} onChange={setScrollback} />
         </SettingRow>
@@ -676,6 +706,7 @@ function TerminalSettings() {
 }
 
 function ExplorerSettings() {
+  const { t } = useTranslation();
   const doubleClickAction = useSettingsStore((s) => s.explorerDoubleClickAction);
   const setDoubleClickAction = useSettingsStore((s) => s.setExplorerDoubleClickAction);
 
@@ -683,8 +714,8 @@ function ExplorerSettings() {
     <SettingsGroup>
       <SettingRow>
         <div>
-          <p className={LABEL_CLASS}>Double-click a File</p>
-          <p className={DESC_CLASS}>What happens when you double-click a file in the browser</p>
+          <p className={LABEL_CLASS}>{t('components_settings_SettingsPage_double_click_a_file')}</p>
+          <p className={DESC_CLASS}>{t('components_settings_SettingsPage_what_happens_when_you_double_click_a_file_in_the_browser')}</p>
         </div>
         <SegmentedControl<DoubleClickAction>
           id="s-doubleclick"
@@ -704,6 +735,7 @@ function ExplorerSettings() {
 }
 
 function TransferSettings() {
+  const { t } = useTranslation();
   const transferConcurrency = useSettingsStore((s) => s.transferConcurrency);
   const setConcurrency = useSettingsStore((s) => s.setTransferConcurrency);
 
@@ -711,8 +743,8 @@ function TransferSettings() {
     <SettingsGroup>
       <SettingRow>
         <div>
-          <label htmlFor="s-concurrency" className={LABEL_CLASS}>Concurrent Transfers</label>
-          <p className={DESC_CLASS}>Maximum simultaneous file transfers (1–10)</p>
+          <label htmlFor="s-concurrency" className={LABEL_CLASS}>{t('components_settings_SettingsPage_concurrent_transfers')}</label>
+          <p className={DESC_CLASS}>{t('components_settings_SettingsPage_maximum_simultaneous_file_transfers_1_10')}</p>
         </div>
         <NumberSetting id="s-concurrency" value={transferConcurrency} min={1} max={10} step={1} onChange={setConcurrency} />
       </SettingRow>
@@ -723,6 +755,7 @@ function TransferSettings() {
 // ─── Data ───────────────────────────────────────────────────────────────────────
 
 function DataSettings() {
+  const { t } = useTranslation();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   // Import is two-step: pick a file, then prompt for its password.
@@ -746,7 +779,7 @@ function DataSettings() {
       <SettingsGroup label="Backup">
         <SettingRow>
           <div>
-            <p className={LABEL_CLASS}>Export encrypted backup</p>
+            <p className={LABEL_CLASS}>{t('components_settings_SettingsPage_export_encrypted_backup')}</p>
             <p className={DESC_CLASS}>
               Save all hosts, groups, snippets, settings, and stored credentials to a
               single password-protected file.
@@ -758,7 +791,7 @@ function DataSettings() {
         </SettingRow>
         <SettingRow>
           <div>
-            <p className={LABEL_CLASS}>Import backup</p>
+            <p className={LABEL_CLASS}>{t('components_settings_SettingsPage_import_backup')}</p>
             <p className={DESC_CLASS}>
               Restore from a backup file. This replaces all current data and restarts anySCP.
             </p>
@@ -772,7 +805,7 @@ function DataSettings() {
       <SettingsGroup label="Danger zone">
         <div className="flex items-center justify-between gap-4 px-4 py-3 rounded-xl bg-bg-surface border border-status-error/30">
           <div>
-            <p className={LABEL_CLASS}>Clear all data</p>
+            <p className={LABEL_CLASS}>{t('components_settings_SettingsPage_clear_all_data')}</p>
             <p className={DESC_CLASS}>
               Permanently delete every saved host, group, connection history entry,
               snippet, port-forward rule, and S3 connection — along with their stored
@@ -820,6 +853,7 @@ function BackupPasswordModal({ mode, open, path, onClose }: {
   path?: string;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const isExport = mode === "export";
   const MIN_LEN = 8;
   const [pw, setPw] = useState("");
@@ -889,7 +923,7 @@ function BackupPasswordModal({ mode, open, path, onClose }: {
       testId={`backup-modal-${mode}`}
       footer={
         <>
-          <button type="button" onClick={onClose} disabled={busy} className={BTN_GHOST}>Cancel</button>
+          <button type="button" onClick={onClose} disabled={busy} className={BTN_GHOST}>{t('components_dashboard_ImportSshConfigModal_cancel')}</button>
           <button
             form="backup-form"
             type="submit"
@@ -911,7 +945,7 @@ function BackupPasswordModal({ mode, open, path, onClose }: {
           </p>
 
           <div>
-            <label htmlFor="backup-pw" className={FIELD_LABEL_CLASS}>Password</label>
+            <label htmlFor="backup-pw" className={FIELD_LABEL_CLASS}>{t('components_settings_SettingsPage_password')}</label>
             <input
               ref={inputRef}
               id="backup-pw"
@@ -928,7 +962,7 @@ function BackupPasswordModal({ mode, open, path, onClose }: {
 
           {isExport && (
             <div>
-              <label htmlFor="backup-pw2" className={FIELD_LABEL_CLASS}>Confirm password</label>
+              <label htmlFor="backup-pw2" className={FIELD_LABEL_CLASS}>{t('components_settings_SettingsPage_confirm_password')}</label>
               <input
                 id="backup-pw2"
                 data-testid="backup-password-confirm"
@@ -941,7 +975,7 @@ function BackupPasswordModal({ mode, open, path, onClose }: {
                 className={TEXT_INPUT_CLASS}
               />
               {confirm.length > 0 && pw !== confirm && (
-                <p className="mt-1 text-[length:var(--text-xs)] text-status-error">Passwords don’t match.</p>
+                <p className="mt-1 text-[length:var(--text-xs)] text-status-error">{t('components_settings_SettingsPage_passwords_don_t_match')}</p>
               )}
             </div>
           )}
@@ -954,6 +988,7 @@ function BackupPasswordModal({ mode, open, path, onClose }: {
 /** Typed-confirmation dialog for the irreversible factory reset. The user must
  *  type the confirm word, then we wipe the backend and relaunch the app. */
 function ConfirmResetModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { t } = useTranslation();
   const CONFIRM_WORD = "DELETE";
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -1002,7 +1037,7 @@ function ConfirmResetModal({ open, onClose }: { open: boolean; onClose: () => vo
       testId="reset-modal"
       footer={
         <>
-          <button type="button" onClick={onClose} disabled={busy} className={BTN_GHOST}>Cancel</button>
+          <button type="button" onClick={onClose} disabled={busy} className={BTN_GHOST}>{t('components_dashboard_ImportSshConfigModal_cancel')}</button>
           <button
             type="button"
             data-testid="reset-confirm-submit"
@@ -1167,13 +1202,14 @@ function EditorRow({ editor, isDefault, onMakeDefault, onRemove }: {
   onMakeDefault: () => void;
   onRemove: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-bg-surface border border-border/50">
       <div className="min-w-0">
         <p className={`${LABEL_CLASS} flex items-center gap-1.5`}>
           {editor.name}
           {isDefault && (
-            <span className="text-[length:var(--text-2xs)] font-medium text-accent uppercase tracking-wide">Default</span>
+            <span className="text-[length:var(--text-2xs)] font-medium text-accent uppercase tracking-wide">{t('components_snippets_SnippetEditModal_default')}</span>
           )}
         </p>
         <p className="text-[length:var(--text-xs)] text-text-muted truncate" title={editor.execPath}>
@@ -1218,6 +1254,7 @@ function AddEditorModal({ open, onClose, onAdd }: {
   onClose: () => void;
   onAdd: (editor: Omit<EditorConfig, "id">) => void;
 }) {
+  const { t } = useTranslation();
   const [name, setName] = useState("");
   const [execPath, setExecPath] = useState("");
   const [args, setArgs] = useState("{path}");
@@ -1292,7 +1329,7 @@ function AddEditorModal({ open, onClose, onAdd }: {
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-border shrink-0">
-          <h2 className="text-[length:var(--text-lg)] font-semibold text-text-primary">Add Editor</h2>
+          <h2 className="text-[length:var(--text-lg)] font-semibold text-text-primary">{t('components_settings_SettingsPage_add_editor')}</h2>
           <button
             type="button"
             onClick={onClose}
@@ -1308,7 +1345,7 @@ function AddEditorModal({ open, onClose, onAdd }: {
         {/* Body */}
         <div className="px-6 py-4 overflow-y-auto flex-1 min-h-0 flex flex-col gap-4">
           <div>
-            <label htmlFor="ed-name" className={FIELD_LABEL_CLASS}>Name</label>
+            <label htmlFor="ed-name" className={FIELD_LABEL_CLASS}>{t('components_settings_SettingsPage_name')}</label>
             <input
               ref={nameRef}
               id="ed-name"
@@ -1322,7 +1359,7 @@ function AddEditorModal({ open, onClose, onAdd }: {
           </div>
 
           <div>
-            <label htmlFor="ed-path" className={FIELD_LABEL_CLASS}>Executable path</label>
+            <label htmlFor="ed-path" className={FIELD_LABEL_CLASS}>{t('components_settings_SettingsPage_executable_path')}</label>
             <div className="flex items-center gap-2">
               <input
                 id="ed-path"
@@ -1344,7 +1381,7 @@ function AddEditorModal({ open, onClose, onAdd }: {
           </div>
 
           <div>
-            <label htmlFor="ed-args" className={FIELD_LABEL_CLASS}>Arguments</label>
+            <label htmlFor="ed-args" className={FIELD_LABEL_CLASS}>{t('components_settings_SettingsPage_arguments')}</label>
             <input
               id="ed-args"
               data-testid="ed-args"
@@ -1383,6 +1420,7 @@ function AddEditorModal({ open, onClose, onAdd }: {
 }
 
 function AboutSettings() {
+  const { t } = useTranslation();
   const autoUpdate = useSettingsStore((s) => s.autoUpdate);
   const setAutoUpdate = useSettingsStore((s) => s.setAutoUpdate);
 
@@ -1394,8 +1432,8 @@ function AboutSettings() {
       <SettingsGroup label="Updates">
         <SettingRow>
           <div>
-            <label htmlFor="s-auto-update" className={LABEL_CLASS}>Automatic Updates</label>
-            <p className={DESC_CLASS}>Download and install updates in the background, applied on the next launch</p>
+            <label htmlFor="s-auto-update" className={LABEL_CLASS}>{t('components_settings_SettingsPage_automatic_updates')}</label>
+            <p className={DESC_CLASS}>{t('components_settings_SettingsPage_download_and_install_updates_in_the_background_applied_on_the_next_launch')}</p>
           </div>
           <Toggle id="s-auto-update" checked={autoUpdate} onChange={setAutoUpdate} />
         </SettingRow>
@@ -1406,6 +1444,7 @@ function AboutSettings() {
 }
 
 function AboutCard() {
+  const { t } = useTranslation();
   const [appVersion, setAppVersion] = useState<string | null>(null);
 
   // Real app version (injected from git tags at build).
@@ -1430,7 +1469,7 @@ function AboutCard() {
       <div className="flex items-center justify-between gap-4">
         <div>
           <p className="text-[length:var(--text-base)] font-semibold text-text-primary">anySCP</p>
-          <p className={DESC_CLASS}>A modern desktop client for SSH, SFTP, and S3</p>
+          <p className={DESC_CLASS}>{t('components_settings_SettingsPage_a_modern_desktop_client_for_ssh_sftp_and_s3')}</p>
         </div>
         <span className="shrink-0 text-[length:var(--text-xs)] tabular-nums text-text-muted">
           {appVersion ? `v${appVersion}` : ""}
@@ -1439,8 +1478,8 @@ function AboutCard() {
 
       <div className="mt-3 pt-3 border-t border-border/50 flex items-center justify-between gap-4">
         <div>
-          <p className={LABEL_CLASS}>Repository</p>
-          <p className={DESC_CLASS}>Source code, issues, and releases on GitHub</p>
+          <p className={LABEL_CLASS}>{t('components_settings_SettingsPage_repository')}</p>
+          <p className={DESC_CLASS}>{t('components_settings_SettingsPage_source_code_issues_and_releases_on_github')}</p>
         </div>
         <button
           onClick={() => void openRepo()}
@@ -1554,6 +1593,7 @@ function SegmentedControl<T extends string>({ id, value, onChange, options }: {
 // ─── Update checker ─────────────────────────────────────────────────────────
 
 function UpdateChecker() {
+  const { t } = useTranslation();
   const status = useUpdaterStore((s) => s.status);
   const version = useUpdaterStore((s) => s.version);
   const error = useUpdaterStore((s) => s.error);
@@ -1573,7 +1613,7 @@ function UpdateChecker() {
     <div className="px-4 py-3 rounded-xl bg-bg-surface border border-border/50">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <p className={LABEL_CLASS}>App Version</p>
+          <p className={LABEL_CLASS}>{t('components_settings_SettingsPage_app_version')}</p>
           <p className={DESC_CLASS}>
             {status === "up-to-date" && "You're on the latest version"}
             {status === "available" && `v${version} is available`}

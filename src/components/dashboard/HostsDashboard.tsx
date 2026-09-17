@@ -41,6 +41,7 @@ import { GroupModal } from "./GroupModal";
 import { ConnectionDialog } from "./ConnectionDialog";
 import { RecentConnections } from "./RecentConnections";
 import { toast } from "../../stores/toast-store";
+import { useTranslation } from "react-i18next";
 
 // Abort an in-flight SSH connection attempt on the Rust side. Best-effort:
 // the attempt may already have settled, in which case the backend reports it
@@ -57,6 +58,7 @@ async function cancelConnectAttempt(attemptId: string) {
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function HostsDashboard() {
+  const { t } = useTranslation();
   const { hosts, loadHosts, recentConnections, loadRecent, saveHost, deleteHost, reorderHosts } =
     useHostsStore();
   const { groups, loadGroups, createGroup, deleteGroup, reorderGroups } = useGroupsStore();
@@ -553,8 +555,8 @@ export function HostsDashboard() {
 
           {/* ── Page title ── */}
           <div>
-            <h1 className="text-[length:var(--text-lg)] font-semibold text-text-primary">Hosts</h1>
-            <p className="text-[length:var(--text-xs)] text-text-muted mt-1">Manage your saved servers, organize them into groups, and connect with one click</p>
+            <h1 className="text-[length:var(--text-lg)] font-semibold text-text-primary">{t('components_sftp_SftpSessionPicker_hosts')}</h1>
+            <p className="text-[length:var(--text-xs)] text-text-muted mt-1">{t('components_dashboard_HostsDashboard_manage_your_saved_servers_organize_them_into_groups_and_connect_with_one_click')}</p>
           </div>
 
           {/* ── Search bar ── */}

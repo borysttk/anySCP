@@ -13,6 +13,10 @@ import type { ShortcutDef } from "../../hooks/use-keyboard-shortcuts";
 import { Sidebar } from "../sidebar";
 import { TerminalArea } from "../terminal";
 import { UnifiedTabBar } from "./UnifiedTabBar";
+import { BottomNav } from "./BottomNav";
+import { MobileTransferBar } from "../transfers/MobileTransferBar";
+import { MobileSessionBar } from "./MobileSessionBar";
+import { useIsMobileViewport } from "../../hooks/use-media-query";
 
 import { HostsDashboard, HostEditModal } from "../dashboard";
 import { NEW_HOST_ID } from "../dashboard/HostEditModal";
@@ -404,15 +408,33 @@ export function AppShell() {
   // Determine what page content to show
   const activePageType = activeTab?.type === "page" ? activeTab.page : null;
 
+  // Desktop and mobile navigation are mounted exclusively, never toggled with
+  // `hidden`/`sm:` classes. Both expose the same `aria-label`s ("Hosts",
+  // "Settings", …) and the desktop e2e suite resolves navigation by those
+  // labels, taking the first DOM match — a hidden second nav would shadow the
+  // real one. It also keeps assistive tech from announcing each destination
+  // twice.
+  const isMobile = useIsMobileViewport();
+
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-bg-base no-select p-2 gap-2">
-      {/* Sidebar rail */}
-      <Sidebar />
+    <div
+      className={[
+        "flex h-screen w-screen overflow-hidden bg-bg-base no-select",
+        // Mobile: stack vertically and let the bottom nav sit flush against the
+        // screen edge — the desktop window padding would waste scarce width and
+        // leave a strip of background under the nav bar.
+        isMobile ? "flex-col p-0 gap-0" : "p-2 gap-2",
+        // Respect a display cutout / status bar at the top.
+        isMobile ? "pt-[env(safe-area-inset-top)]" : "",
+      ].join(" ")}
+    >
+      {/* Sidebar rail — desktop only */}
+      {!isMobile && <Sidebar />}
 
       {/* Main content */}
-      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-        {/* Unified tab bar — always shown */}
-        <UnifiedTabBar />
+      <div className="flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden">
+        {/* Session switcher: compact header on mobile, tab strip on desktop */}
+        {isMobile ? <MobileSessionBar /> : <UnifiedTabBar />}
 
         {/* Main content area */}
         <div className="flex-1 min-h-0 relative flex">
@@ -427,7 +449,7 @@ export function AppShell() {
                 return (
                   <div
                     key={tabId}
-                    className={`absolute inset-0 p-2 ${isVisible ? "z-10 visible" : "z-0 invisible"}`}
+                    className={`absolute inset-0 ${isMobile ? "" : "p-2"} ${isVisible ? "z-10 visible" : "z-0 invisible"}`}
                   >
                     <TerminalArea node={termTab.layout} tabId={tabId} />
                   </div>
@@ -480,6 +502,19 @@ export function AppShell() {
           </div>
         </div>
       </div>
+
+      {/*
+        Transfer indicator + bottom nav — mobile only, after the content in DOM
+        order so they are the last things reached by tab/screen-reader
+        traversal.
+
+        The transfer bar is mounted at the shell level, not inside
+        ExplorerView: transfers outlive the tab that started them, and
+        TransferPopover (its desktop equivalent) lives in the desktop-only
+        Sidebar, so without this the queue is unreachable on a phone.
+      */}
+      {isMobile && <MobileTransferBar />}
+      {isMobile && <BottomNav />}
 
       {/* Host modal (new + edit) */}
       <HostEditModal />
