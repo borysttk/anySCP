@@ -29,5 +29,6 @@ impl client::Handler for SshClientHandler {
             self.port,
             server_public_key,
         )
+        .map_err(|_| russh::Error::UnknownKey)
     }
 }
